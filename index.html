@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>機械稼働タイムテーブル</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --row-h: 80px;
+    --label-w: 168px;
+    --slot-px: 30px;   /* 15分 = 1マス */
+    --slots: 40;       /* 08:00〜18:00 = 40スロット */
+    --tl-w: calc(var(--slot-px) * var(--slots)); /* 1200px */
+    --accent: #2563eb;
+    --accent-light: #eff6ff;
+    --surface: #ffffff;
+    --bg: #f1f5f9;
+    --border: #e2e8f0;
+    --border-mid: #cbd5e1;
+    --border-strong: #94a3b8;
+    --text: #1e293b;
+    --muted: #64748b;
+    --danger: #ef4444;
+    --danger-light: #fef2f2;
+  }
+
+  body {
+    font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── アプリヘッダー ── */
+  .app-header {
+    background: var(--accent);
+    color: #fff;
+    padding: 0 24px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.22);
+  }
+  .app-header svg { flex-shrink: 0; }
+  .app-header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: .04em; }
+  .app-header .date-badge {
+    margin-left: auto;
+    background: rgba(255,255,255,.18);
+    border-radius: 8px;
+    padding: 4px 14px;
+    font-size: .9rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* ── メインエリア ── */
+  .main {
+    padding: 20px 20px 80px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  /* ── ツールバー ── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .date-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 6px 10px;
+    box-shadow: 0 1px 6px rgba(0,0,0,.08);
+  }
+  .date-nav-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    font-size: 1.15rem;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+    transition: background .1s, color .1s;
+  }
+  .date-nav-btn:hover { background: var(--accent-light); color: var(--accent); }
+  .date-input {
+    border: none;
+    background: transparent;
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    font-family: inherit;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background .1s;
+  }
+  .date-input:focus { outline: none; background: var(--accent-light); }
+  .btn-add-machine {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 9px 18px;
+    font-size: .9rem;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color .15s, color .15s, background .15s;
+    font-family: inherit;
+  }
+  .btn-add-machine:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-light);
+  }
+
+  /* ── チャートカード ── */
+  .chart-card {
+    background: var(--surface);
+    border-radius: 16px;
+    box-shadow: 0 2px 20px rgba(0,0,0,.09);
+    /* overflow: hidden は外さない → chart-scroll 内のスティッキーは chart-scroll 基準 */
+  }
+
+  /* ── 横スクロールラッパー ── */
+  .chart-scroll {
+    overflow-x: auto;
+    border-radius: 16px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  .chart-scroll::-webkit-scrollbar { height: 7px; }
+  .chart-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 0 0 16px 16px; }
+  .chart-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+  .chart-scroll::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* チャート全体の最小幅（ラベル + タイムライン） */
+  .chart-inner {
+    min-width: calc(var(--label-w) + var(--tl-w));
+  }
+
+  /* ── 時間軸ヘッダー ── */
+  .chart-header {
+    display: flex;
+    border-bottom: 2px solid var(--border-strong);
+    background: #f0f4f8;
+  }
+  .corner {
+    width: var(--label-w);
+    min-width: var(--label-w);
+    flex-shrink: 0;
+    border-right: 3px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    color: var(--muted);
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    /* 横スクロール中も機械名列の上に留まる */
+    position: sticky;
+    left: 0;
+    z-index: 30;
+    background: #eef2f7;
+    /* absolute な子要素の基準にする */
+    overflow: visible;
+  }
+
+  /* ── 機械名列リサイズハンドル ── */
+  .resize-handle {
+    position: absolute;
+    top: 0;
+    /* 右ボーダー(3px)の中央に重なる位置 */
+    right: -4px;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 1;
+    /* ドラッグ中にテキスト選択が起きないよう */
+    touch-action: none;
+  }
+  /* インジケーター：ドラッグ可能であることを示す細い縦バー */
+  .resize-handle::before {
+    content: '';
+    position: absolute;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 60%;
+    border-radius: 2px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .resize-handle:hover::before,
+  .resize-handle.is-resizing::before { opacity: 1; }
+  /* ドラッグ中はページ全体のカーソルを固定 */
+  body.col-resizing,
+  body.col-resizing * { cursor: col-resize !important; user-select: none !important; }
+
+  /* 時間軸ラッパー（2段構成） */
+  .time-axis-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: var(--tl-w);
+  }
+
+  /* 上段：時刻ラベル（1時間単位） */
+  .time-axis-hours {
+    display: flex;
+    background: #eef2f7;
+    border-bottom: 1px solid var(--border-mid);
+  }
+  .time-hour-cell {
+    width: calc(var(--slot-px) * 4); /* 120px = 4スロット */
+    min-width: calc(var(--slot-px) * 4);
+    flex-shrink: 0;
+    padding: 5px 8px;
+    font-size: .78rem;
+    font-weight: 800;
+    color: var(--accent);
+    border-right: 2px solid var(--border-mid);
+    white-space: nowrap;
+    user-select: none;
+  }
+  .time-hour-cell:last-child { border-right: none; }
+
+  /* 下段：15分刻みティック */
+  .time-axis-mins {
+    display: flex;
+    background: #f8fafc;
+  }
+  .time-min-cell {
+    width: var(--slot-px);
+    min-width: var(--slot-px);
+    flex-shrink: 0;
+    padding: 4px 0 3px;
+    font-size: .6rem;
+    font-weight: 500;
+    text-align: center;
+    color: var(--muted);
+    border-right: 1px dashed var(--border);
+    user-select: none;
+  }
+  .time-min-cell:last-child { border-right: none; }
+  .time-min-cell.at-hour {
+    font-weight: 800;
+    color: var(--text);
+    border-right: 2px solid var(--border-strong);
+  }
+  .time-min-cell.at-half {
+    font-weight: 600;
+    color: #475569;
+    border-right: 1px solid var(--border-mid);
+  }
+
+  /* ── 機械行 ── */
+  .machine-row {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .machine-row:last-child { border-bottom: none; }
+
+  /* 機械ラベル列（横スクロール中もスティッキー） */
+  .machine-label {
+    width: var(--label-w);
+    min-width: var(--label-w);
+    flex-shrink: 0;
+    border-right: 3px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    padding: 0 10px 0 14px;
+    gap: 8px;
+    background: #f8fafc;
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    /* 細い右影で「固定列」感を演出 */
+    box-shadow: 2px 0 6px -2px rgba(0,0,0,.1);
+  }
+  .machine-icon {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+  }
+  .machine-name {
+    font-size: .88rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .machine-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+    font-size: .8rem;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity .15s, background .1s, color .1s;
+  }
+  .machine-row:hover .machine-delete-btn { opacity: 1; }
+  .machine-delete-btn:hover { background: var(--danger-light); color: var(--danger); }
+
+  .machine-edit-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity .15s, background .1s, color .1s;
+  }
+  .machine-row:hover .machine-edit-btn { opacity: 1; }
+  .machine-edit-btn:hover { background: var(--accent-light); color: var(--accent); }
+
+  /* インライン編集中の入力欄 */
+  .machine-name-input {
+    flex: 1;
+    min-width: 0;
+    font-size: .88rem;
+    font-weight: 700;
+    color: var(--text);
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    padding: 3px 6px;
+    background: #fff;
+    font-family: inherit;
+  }
+  .machine-name-input:focus { outline: none; }
+  .machine-name-input.has-error { border-color: var(--danger); }
+
+  /* ── タイムライン（40列グリッド） ── */
+  .timeline {
+    /* 40スロット × 30px = 1200px 固定グリッド */
+    display: grid;
+    grid-template-columns: repeat(var(--slots), var(--slot-px));
+    position: relative;
+    min-height: var(--row-h);
+    background-color: #fff;
+  }
+
+  /* 15分スロットセル */
+  .hour-slot {
+    min-height: var(--row-h);
+    border-right: 1px dashed var(--border);
+    cursor: crosshair;
+    transition: background .1s;
+  }
+  .hour-slot:hover { background: var(--accent-light); }
+  .hour-slot:last-child { border-right: none; }
+  /* 30分境界：やや濃いライン */
+  .hour-slot.at-half { border-right: 1px solid var(--border-mid); }
+  /* 時間境界：強いライン */
+  .hour-slot.at-hour { border-right: 2px solid var(--border-strong); }
+  /* 偶数時間帯に背景を微妙に変えて視認性UP */
+  .hour-slot.even-hour { background-color: #fafbfc; }
+  .hour-slot.even-hour:hover { background: var(--accent-light); }
+
+  /* ── 作業ブロック ── */
+  .task-block {
+    position: absolute;
+    top: 8px; bottom: 8px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,.13);
+    transition: transform .1s, box-shadow .1s;
+    overflow: hidden;
+    z-index: 10;
+    min-width: 4px; /* 極小ブロックでも表示 */
+  }
+  .task-block:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 16px rgba(0,0,0,.2);
+  }
+  .task-block:active { transform: translateY(0); }
+  .task-inner {
+    pointer-events: none;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .task-name {
+    font-size: .85rem;
+    font-weight: 700;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .task-time {
+    font-size: .7rem;
+    opacity: .75;
+    display: block;
+    margin-top: 1px;
+  }
+
+  /* 色テーマ */
+  .color-blue   { background: #bfdbfe; color: #1e40af; border-left: 4px solid #3b82f6; }
+  .color-green  { background: #bbf7d0; color: #166534; border-left: 4px solid #22c55e; }
+  .color-amber  { background: #fde68a; color: #92400e; border-left: 4px solid #f59e0b; }
+  .color-rose   { background: #fecdd3; color: #9f1239; border-left: 4px solid #f43f5e; }
+  .color-purple { background: #e9d5ff; color: #6b21a8; border-left: 4px solid #a855f7; }
+
+  /* 機械なし空状態 */
+  .empty-machines {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 56px 24px;
+    gap: 10px;
+    color: var(--muted);
+  }
+  .empty-machines .empty-icon { font-size: 2.8rem; }
+  .empty-machines p { font-size: .92rem; font-weight: 600; }
+
+  /* ── FAB ── */
+  .fab {
+    position: fixed;
+    bottom: 28px; right: 28px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 60px; height: 60px;
+    font-size: 2rem;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(37,99,235,.45);
+    transition: transform .15s, box-shadow .15s;
+    z-index: 100;
+  }
+  .fab:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(37,99,235,.55); }
+
+  /* ── 凡例 ── */
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    align-items: center;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: .8rem; color: var(--muted); font-weight: 600;
+  }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+  .legend-hint {
+    margin-left: auto;
+    font-size: .76rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── モーダル共通 ── */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(15,23,42,.46);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.26);
+    width: 100%;
+    max-width: 440px;
+    animation: slideUp .2s ease;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(24px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .modal-header {
+    padding: 20px 24px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; background: var(--surface); z-index: 1;
+    border-radius: 20px 20px 0 0;
+  }
+  .modal-header h2 { font-size: 1.1rem; font-weight: 700; }
+  .modal-close {
+    margin-left: auto;
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 1.5rem; line-height: 1;
+    padding: 4px; border-radius: 6px;
+    transition: background .1s;
+  }
+  .modal-close:hover { background: var(--border); }
+  .modal-body { padding: 20px 24px; }
+
+  /* フォーム */
+  .form-group { margin-bottom: 18px; }
+  .form-group label {
+    display: block;
+    font-size: .84rem;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 6px;
+    letter-spacing: .02em;
+  }
+  .form-group select,
+  .form-group input[type="text"],
+  .form-group input[type="time"] {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    background: var(--surface);
+    transition: border-color .15s;
+    font-family: inherit;
+  }
+  .form-group select:focus,
+  .form-group input:focus { outline: none; border-color: var(--accent); }
+  .time-row { display: flex; gap: 12px; }
+  .time-row .form-group { flex: 1; }
+
+  /* 色・アイコン選択 */
+  .color-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+  .color-opt {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: transform .1s, border-color .1s;
+  }
+  .color-opt:hover { transform: scale(1.1); }
+  .color-opt.selected { border-color: var(--text); transform: scale(1.12); }
+  .color-opt[data-c="blue"]   { background: #3b82f6; }
+  .color-opt[data-c="green"]  { background: #22c55e; }
+  .color-opt[data-c="amber"]  { background: #f59e0b; }
+  .color-opt[data-c="rose"]   { background: #f43f5e; }
+  .color-opt[data-c="purple"] { background: #a855f7; }
+
+  .icon-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+  .icon-opt {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    border: 2.5px solid transparent;
+    cursor: pointer;
+    font-size: 1.25rem;
+    display: flex; align-items: center; justify-content: center;
+    background: #f1f5f9;
+    transition: border-color .1s, transform .1s, background .1s;
+  }
+  .icon-opt:hover { background: var(--accent-light); transform: scale(1.08); }
+  .icon-opt.selected { border-color: var(--accent); transform: scale(1.1); background: var(--accent-light); }
+
+  /* ── 「なし」オプション（テキストボタン） ── */
+  .icon-opt-none {
+    width: auto;
+    min-width: 48px;
+    padding: 0 10px;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    color: var(--muted);
+    background: #f1f5f9;
+    border: 2.5px dashed var(--border-mid);
+  }
+  .icon-opt-none:hover {
+    background: var(--accent-light);
+    border-color: var(--accent);
+    border-style: dashed;
+    color: var(--accent);
+    transform: scale(1.05);
+  }
+  .icon-opt-none.selected {
+    border-style: solid;
+    border-color: var(--accent);
+    background: var(--accent-light);
+    color: var(--accent);
+    transform: scale(1.05);
+  }
+
+  .iconbg-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+  .iconbg-opt {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: transform .1s, border-color .1s;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+  }
+  .iconbg-opt:hover { transform: scale(1.1); }
+  .iconbg-opt.selected { border-color: var(--text); transform: scale(1.12); }
+
+  /* ボタン */
+  .btn-row { display: flex; gap: 10px; margin-top: 24px; }
+  .btn {
+    flex: 1;
+    padding: 14px;
+    font-size: 1rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+    font-family: inherit;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-secondary:hover { background: #cbd5e1; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+
+  /* 詳細モーダル */
+  .detail-field {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+  }
+  .detail-field .lbl { font-size: .75rem; color: var(--muted); font-weight: 700; margin-bottom: 2px; }
+  .detail-field .val { font-size: 1rem; font-weight: 600; color: var(--text); }
+
+  .error-msg { color: var(--danger); font-size: .82rem; margin-top: 6px; display: none; }
+  .error-msg.show { display: block; }
+
+  /* ── 入力履歴サジェスト ── */
+  .suggest-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .suggest-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 11px;
+    font-size: .76rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: #f1f5f9;
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background .1s, color .1s, border-color .1s, transform .08s;
+  }
+  .suggest-chip:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+  .suggest-chip:active { transform: translateY(0) scale(.97); }
+
+  /* ── レスポンシブ ── */
+  @media (max-width: 700px) {
+    :root { --label-w: 90px; --row-h: 68px; }
+    .machine-name { font-size: .76rem; }
+    .machine-icon { width: 28px; height: 28px; font-size: 1rem; }
+    .app-header h1 { font-size: 1rem; }
+    .main { padding: 12px 10px 80px; }
+    .toolbar { gap: 8px; }
+    .legend-hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── アプリヘッダー ── -->
+<header class="app-header">
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+    <line x1="3" y1="10" x2="21" y2="10"/>
+    <line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/>
+    <line x1="8" y1="18" x2="10" y2="18"/>
+  </svg>
+  <h1>機械稼働タイムテーブル</h1>
+  <div class="date-badge" id="todayBadge"></div>
+</header>
+
+<!-- ── メインエリア ── -->
+<main class="main">
+
+  <!-- ツールバー -->
+  <div class="toolbar">
+    <div class="date-nav">
+      <button class="date-nav-btn" id="prevDay" title="前日">‹</button>
+      <input type="date" class="date-input" id="dateInput">
+      <button class="date-nav-btn" id="nextDay" title="翌日">›</button>
+    </div>
+    <button class="btn-add-machine" id="addMachineBtn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      機械を追加
+    </button>
+  </div>
+
+  <!-- チャートカード -->
+  <div class="chart-card">
+    <div class="chart-scroll">
+      <div class="chart-inner">
+
+        <!-- 時間軸ヘッダー（2段） -->
+        <div class="chart-header">
+          <div class="corner">
+            機械
+            <div class="resize-handle" id="resizeHandle" title="ドラッグして幅を調整"></div>
+          </div>
+          <div class="time-axis-wrap">
+            <div class="time-axis-hours" id="timeAxisHours"></div>
+            <div class="time-axis-mins"  id="timeAxisMins"></div>
+          </div>
+        </div>
+
+        <!-- 機械行エリア -->
+        <div id="chartBody"></div>
+
+      </div><!-- /.chart-inner -->
+    </div><!-- /.chart-scroll -->
+  </div><!-- /.chart-card -->
+
+  <!-- 凡例 -->
+  <div class="legend">
+    <span style="font-size:.8rem;font-weight:700;color:var(--muted);">色：</span>
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>青</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>緑</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>黄</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f43f5e"></div>赤</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div>紫</div>
+    <span class="legend-hint">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      空きセルをクリック → 作業追加　／　ブロックをクリック → 編集・削除
+    </span>
+  </div>
+
+</main>
+
+<!-- ── FAB ── -->
+<button class="fab" id="fabBtn" title="作業を追加">＋</button>
+
+<!-- ── 作業追加モーダル ── -->
+<div class="overlay" id="addOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+      </svg>
+      <h2 id="addModalTitle">作業を追加</h2>
+      <button class="modal-close" id="addClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>機械</label>
+        <select id="fMachine"></select>
+      </div>
+      <div class="form-group">
+        <label>作業名</label>
+        <input type="text" id="fName" placeholder="例：ロット202製造" maxlength="30">
+        <div class="error-msg" id="errName">作業名を入力してください</div>
+        <div class="suggest-list" id="taskNameSuggests"></div>
+      </div>
+      <div class="time-row">
+        <div class="form-group">
+          <label>開始時間</label>
+          <!-- step="900" = 15分単位 -->
+          <input type="time" id="fStart" min="08:00" max="18:00" step="900">
+        </div>
+        <div class="form-group">
+          <label>終了時間</label>
+          <input type="time" id="fEnd" min="08:00" max="18:00" step="900">
+        </div>
+      </div>
+      <div class="error-msg" id="errTime">
+        08:00〜18:00 の範囲で、<strong>15分単位</strong>（:00 / :15 / :30 / :45）で入力してください
+      </div>
+      <div class="error-msg" id="errOverlap">同じ機械に重複する作業があります</div>
+      <div class="form-group">
+        <label>カラー</label>
+        <div class="color-picker" id="colorPicker">
+          <div class="color-opt selected" data-c="blue"></div>
+          <div class="color-opt" data-c="green"></div>
+          <div class="color-opt" data-c="amber"></div>
+          <div class="color-opt" data-c="rose"></div>
+          <div class="color-opt" data-c="purple"></div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="addCancel">キャンセル</button>
+        <button class="btn btn-danger" id="addDelete" style="display:none">🗑 削除</button>
+        <button class="btn btn-primary" id="addSave">追加する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 機械追加モーダル ── -->
+<div class="overlay" id="machineOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round">
+        <rect x="3" y="3" width="18" height="18" rx="3"/>
+        <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+      </svg>
+      <h2>機械を追加</h2>
+      <button class="modal-close" id="machineClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>機械名</label>
+        <input type="text" id="mName" placeholder="例：旋盤C" maxlength="20">
+        <div class="error-msg" id="errMName">機械名を入力してください</div>
+        <div class="error-msg" id="errMDup">同じ名前の機械が既に存在します</div>
+        <div class="suggest-list" id="machineNameSuggests"></div>
+      </div>
+      <div class="form-group">
+        <label>アイコン</label>
+        <div class="icon-picker" id="iconPicker"></div>
+      </div>
+      <div class="form-group">
+        <label>アイコン背景色</label>
+        <div class="iconbg-picker" id="iconBgPicker"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="machineCancel">キャンセル</button>
+        <button class="btn btn-primary" id="machineSave">追加する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   タイムライン定数（15分単位）
+═══════════════════════════════════════════════════════ */
+const TIME_START   = 8;          // 開始時刻（時）
+const TIME_END     = 18;         // 終了時刻（時）
+const SLOT_MIN     = 15;         // 1スロット = 15分
+const TOTAL_SLOTS  = (TIME_END - TIME_START) * 60 / SLOT_MIN; // 40スロット
+const SLOT_PX      = 30;         // 1スロットのピクセル幅（CSS --slot-px と一致）
+
+/* ═══════════════════════════════════════════════════════
+   機械追加モーダル用プリセット
+═══════════════════════════════════════════════════════ */
+const ICON_OPTS  = ['🔩','⚙️','🏭','🔧','🛠️','🔨','💡','🚜','🤖','📦','🖥️','⚡'];
+const ICONBG_OPTS = ['#dbeafe','#dcfce7','#fef9c3','#fce7f3',
+                     '#ede9fe','#ffedd5','#cffafe','#f1f5f9'];
+
+/* ═══════════════════════════════════════════════════════
+   アプリ状態
+═══════════════════════════════════════════════════════ */
+let machines = [
+  { id: 'press-a',    name: 'プレス機A',      icon: '🔩', iconBg: '#dbeafe' },
+  { id: 'cut-b',      name: '切削機B',        icon: '⚙️', iconBg: '#dcfce7' },
+  { id: 'assembly-1', name: '組み立てライン1', icon: '🏭', iconBg: '#fef9c3' },
+];
+
+// { 'YYYY-MM-DD': [ {id, machineId, name, start, end, color}, ... ] }
+const schedule = {};
+
+let currentDate   = toDateKey(new Date());
+let selectedColor  = 'blue';
+let selectedIcon   = ICON_OPTS[0];
+let selectedIconBg = ICONBG_OPTS[0];
+let editingTaskId  = null;
+
+/* ── サンプルデータ（今日分） ── */
+schedule[currentDate] = [
+  { id: uid(), machineId: 'press-a',    name: 'ロット101製造',    start: '09:00', end: '11:30', color: 'blue'   },
+  { id: uid(), machineId: 'press-a',    name: '段取り替え',        start: '13:15', end: '14:00', color: 'amber'  },
+  { id: uid(), machineId: 'cut-b',      name: '定期メンテナンス',  start: '13:00', end: '15:15', color: 'rose'   },
+  { id: uid(), machineId: 'assembly-1', name: 'ロット202組立',     start: '08:30', end: '12:00', color: 'green'  },
+  { id: uid(), machineId: 'assembly-1', name: '品質検査',          start: '15:45', end: '17:30', color: 'purple' },
+];
+
+/* ═══════════════════════════════════════════════════════
+   ユーティリティ
+═══════════════════════════════════════════════════════ */
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+function toDateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+/** 選択日のタスク配列（なければ初期化） */
+function currentTasks() {
+  if (!schedule[currentDate]) schedule[currentDate] = [];
+  return schedule[currentDate];
+}
+
+/** "HH:MM" → 分数 */
+function timeToMin(t) {
+  if (!t) return 0;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
+/** "HH:MM" → スロットインデックス（0 = 08:00） */
+function timeToSlot(t) {
+  return (timeToMin(t) - TIME_START * 60) / SLOT_MIN;
+}
+
+/** スロットインデックス → "HH:MM" */
+function slotToTimeStr(slotIdx) {
+  const total = TIME_START * 60 + slotIdx * SLOT_MIN;
+  return `${String(Math.floor(total / 60)).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`;
+}
+
+/** 時刻が15分境界かチェック */
+function is15minAligned(t) {
+  if (!t) return false;
+  return timeToMin(t) % SLOT_MIN === 0;
+}
+
+function showErr(id) { document.getElementById(id).classList.add('show'); }
+function clearErrors(...ids) { ids.forEach(id => document.getElementById(id).classList.remove('show')); }
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ═══════════════════════════════════════════════════════
+   入力履歴（LocalStorage）管理
+═══════════════════════════════════════════════════════ */
+const HISTORY_MAX    = 10;
+const LS_TASK_KEY    = 'fst_task_history';
+const LS_MACHINE_KEY = 'fst_machine_history';
+
+/** LocalStorage から履歴配列を読み込む */
+function loadHistory(key) {
+  try { return JSON.parse(localStorage.getItem(key) || '[]'); }
+  catch { return []; }
+}
+
+/**
+ * 値を履歴の先頭に追加する。
+ * 重複は除去して最新を先頭に、10件超は末尾から削除。
+ */
+function saveToHistory(key, value) {
+  if (!value) return;
+  let hist = loadHistory(key).filter(v => v !== value);
+  hist.unshift(value);
+  hist = hist.slice(0, HISTORY_MAX);
+  try { localStorage.setItem(key, JSON.stringify(hist)); }
+  catch { /* ストレージ満杯などは無視 */ }
+}
+
+/**
+ * 履歴チップを描画し、クリックで対象 input に値をセットする。
+ * @param {string} listId   チップを表示する要素の id
+ * @param {string} key      LocalStorage のキー
+ * @param {string} inputId  値を流し込む input の id
+ */
+function renderSuggests(listId, key, inputId) {
+  const list = document.getElementById(listId);
+  if (!list) return;
+  const hist = loadHistory(key);
+  list.innerHTML = '';
+  hist.forEach(item => {
+    const chip = document.createElement('button');
+    chip.type      = 'button';
+    chip.className = 'suggest-chip';
+    chip.textContent = item;
+    chip.title     = item;
+    chip.addEventListener('click', () => {
+      document.getElementById(inputId).value = item;
+      document.getElementById(inputId).focus();
+    });
+    list.appendChild(chip);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   日付バッジ
+═══════════════════════════════════════════════════════ */
+function updateDateBadge(dateKey) {
+  const d = new Date(dateKey + 'T00:00:00');
+  document.getElementById('todayBadge').textContent =
+    `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${'日月火水木金土'[d.getDay()]}）`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   時間軸ヘッダー生成（2段）
+═══════════════════════════════════════════════════════ */
+function buildTimeAxis() {
+  /* ── 上段：時刻ラベル（1時間単位） ── */
+  const hoursRow = document.getElementById('timeAxisHours');
+  hoursRow.innerHTML = '';
+  for (let h = TIME_START; h < TIME_END; h++) {
+    const cell = document.createElement('div');
+    cell.className = 'time-hour-cell';
+    cell.textContent = `${String(h).padStart(2,'0')}:00`;
+    hoursRow.appendChild(cell);
+  }
+
+  /* ── 下段：15分ティック ── */
+  const minsRow = document.getElementById('timeAxisMins');
+  minsRow.innerHTML = '';
+  for (let s = 0; s < TOTAL_SLOTS; s++) {
+    const mn = (TIME_START * 60 + s * SLOT_MIN) % 60;
+    const cell = document.createElement('div');
+    cell.className = 'time-min-cell';
+    if (mn === 0)  cell.classList.add('at-hour');
+    if (mn === 30) cell.classList.add('at-half');
+    cell.textContent = String(mn).padStart(2, '0');
+    minsRow.appendChild(cell);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   チャート本体描画
+═══════════════════════════════════════════════════════ */
+function buildChart() {
+  const body = document.getElementById('chartBody');
+  body.innerHTML = '';
+
+  if (machines.length === 0) {
+    body.innerHTML = `
+      <div class="empty-machines">
+        <div class="empty-icon">🏗️</div>
+        <p>機械がありません。「機械を追加」ボタンで追加してください。</p>
+      </div>`;
+    return;
+  }
+
+  machines.forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'machine-row';
+
+    /* ── ラベル列（スティッキー） ── */
+    const lbl = document.createElement('div');
+    lbl.className = 'machine-label';
+
+    /* アイコンが設定されている場合のみ表示 */
+    if (m.icon) {
+      const iconEl = document.createElement('div');
+      iconEl.className = 'machine-icon';
+      iconEl.style.background = m.iconBg;
+      iconEl.textContent = m.icon;
+      lbl.appendChild(iconEl);
+    }
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'machine-name';
+    nameEl.textContent = m.name;
+    nameEl.title = 'ダブルクリックで名前を編集';
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'machine-edit-btn';
+    editBtn.title = '機械名を編集';
+    editBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+    editBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      startMachineEdit(m.id, nameEl, editBtn, delBtn);
+    });
+    nameEl.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      startMachineEdit(m.id, nameEl, editBtn, delBtn);
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'machine-delete-btn';
+    delBtn.title = 'この機械を削除';
+    delBtn.textContent = '✕';
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteMachine(m.id, m.name);
+    });
+
+    const rh = document.createElement('div');
+    rh.className = 'resize-handle';
+    lbl.appendChild(nameEl);
+    lbl.appendChild(editBtn);
+    lbl.appendChild(delBtn);
+    lbl.appendChild(rh);
+    row.appendChild(lbl);
+
+    /* ── タイムライン列（40列グリッド） ── */
+    const tl = document.createElement('div');
+    tl.className = 'timeline';
+
+    /* 40スロット生成 */
+    for (let s = 0; s < TOTAL_SLOTS; s++) {
+      const slotMin  = TIME_START * 60 + s * SLOT_MIN;
+      const slotH    = Math.floor(slotMin / 60);
+      const slotMn   = slotMin % 60;
+      const timeStr  = `${String(slotH).padStart(2,'0')}:${String(slotMn).padStart(2,'0')}`;
+      // 偶数時間帯（8, 10, 12 ... 時台）を視覚的に区別
+      const isEven   = (slotH % 2 === 0);
+
+      const slotEl = document.createElement('div');
+      slotEl.className = 'hour-slot';
+      if (slotMn === 0)  slotEl.classList.add('at-hour');
+      if (slotMn === 30) slotEl.classList.add('at-half');
+      if (isEven)        slotEl.classList.add('even-hour');
+
+      slotEl.addEventListener('click', e => {
+        if (e.target.classList.contains('task-block') || e.target.closest('.task-block')) return;
+        openAddModal(m.id, timeStr);
+      });
+      tl.appendChild(slotEl);
+    }
+
+    /* 作業ブロック配置（絶対位置：ピクセル単位） */
+    currentTasks()
+      .filter(t => t.machineId === m.id)
+      .forEach(t => tl.appendChild(createTaskBlock(t)));
+
+    row.appendChild(tl);
+    body.appendChild(row);
+  });
+}
+
+/* ── 作業ブロック DOM 生成 ── */
+function createTaskBlock(t) {
+  const startSlot = timeToSlot(t.start);
+  const endSlot   = timeToSlot(t.end);
+  const leftPx    = startSlot * SLOT_PX;
+  const widthPx   = (endSlot - startSlot) * SLOT_PX;
+
+  const block = document.createElement('button');
+  block.className    = `task-block color-${t.color}`;
+  block.style.left   = `${leftPx + 2}px`;
+  block.style.width  = `${widthPx - 4}px`;
+  block.dataset.taskId = t.id;
+  block.innerHTML = `
+    <div class="task-inner">
+      <span class="task-name">${escHtml(t.name)}</span>
+      <span class="task-time">${t.start}〜${t.end}</span>
+    </div>`;
+  block.addEventListener('click', e => {
+    e.stopPropagation();
+    openDetailModal(t.id);
+  });
+  return block;
+}
+
+/* ═══════════════════════════════════════════════════════
+   日付ナビゲーション
+═══════════════════════════════════════════════════════ */
+const dateInput = document.getElementById('dateInput');
+
+function setCurrentDate(dateKey) {
+  currentDate = dateKey;
+  dateInput.value = dateKey;
+  updateDateBadge(dateKey);
+  buildChart();
+}
+
+dateInput.addEventListener('change', () => {
+  if (dateInput.value) setCurrentDate(dateInput.value);
+});
+
+document.getElementById('prevDay').addEventListener('click', () => {
+  const d = new Date(currentDate + 'T00:00:00');
+  d.setDate(d.getDate() - 1);
+  setCurrentDate(toDateKey(d));
+});
+
+document.getElementById('nextDay').addEventListener('click', () => {
+  const d = new Date(currentDate + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  setCurrentDate(toDateKey(d));
+});
+
+/* ═══════════════════════════════════════════════════════
+   作業追加モーダル
+═══════════════════════════════════════════════════════ */
+function setSelectedColor(color) {
+  selectedColor = color;
+  document.querySelectorAll('.color-opt').forEach(o => {
+    o.classList.toggle('selected', o.dataset.c === color);
+  });
+}
+
+function openAddModal(machineId, startTime = slotToTimeStr(0), taskId = null) {
+  if (machines.length === 0) {
+    alert('先に機械を追加してください。');
+    return;
+  }
+
+  const isEdit = taskId !== null;
+  editingTaskId = taskId;
+
+  document.getElementById('addModalTitle').textContent = isEdit ? '作業を編集' : '作業を追加';
+  document.getElementById('addSave').textContent       = isEdit ? '変更を保存' : '追加する';
+  document.getElementById('addDelete').style.display   = isEdit ? '' : 'none';
+
+  /* 機械セレクト */
+  const sel = document.getElementById('fMachine');
+  sel.innerHTML = machines.map(m =>
+    `<option value="${m.id}" ${m.id === machineId ? 'selected' : ''}>${escHtml(m.name)}</option>`
+  ).join('');
+
+  if (isEdit) {
+    const t = currentTasks().find(t => t.id === taskId);
+    document.getElementById('fName').value  = t.name;
+    document.getElementById('fStart').value = t.start;
+    document.getElementById('fEnd').value   = t.end;
+    setSelectedColor(t.color);
+  } else {
+    const sMin = timeToMin(startTime);
+    const eMin = Math.min(sMin + 60, TIME_END * 60);
+    document.getElementById('fStart').value = startTime;
+    document.getElementById('fEnd').value   = `${String(Math.floor(eMin / 60)).padStart(2,'0')}:${String(eMin % 60).padStart(2,'0')}`;
+    document.getElementById('fName').value  = '';
+    setSelectedColor('blue');
+  }
+
+  clearErrors('errName', 'errTime', 'errOverlap');
+  renderSuggests('taskNameSuggests', LS_TASK_KEY, 'fName');
+  document.getElementById('addOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('fName').focus(), 80);
+}
+
+function closeAddModal() {
+  document.getElementById('addOverlay').classList.remove('open');
+  editingTaskId = null;
+}
+
+/* FAB は先頭機械の 08:00 を初期値に */
+document.getElementById('fabBtn').addEventListener('click', () =>
+  openAddModal(machines[0]?.id ?? '', slotToTimeStr(0)));
+document.getElementById('addClose').addEventListener('click', closeAddModal);
+document.getElementById('addCancel').addEventListener('click', closeAddModal);
+document.getElementById('addOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeAddModal();
+});
+
+document.getElementById('addSave').addEventListener('click', () => {
+  clearErrors('errName', 'errTime', 'errOverlap');
+
+  const machineId = document.getElementById('fMachine').value;
+  const name  = document.getElementById('fName').value.trim();
+  const start = document.getElementById('fStart').value;
+  const end   = document.getElementById('fEnd').value;
+
+  let ok = true;
+  if (!name) { showErr('errName'); ok = false; }
+
+  /* 15分境界・範囲・前後チェック */
+  const sMin = timeToMin(start);
+  const eMin = timeToMin(end);
+  const validTime =
+    start && end &&
+    is15minAligned(start) && is15minAligned(end) &&
+    sMin >= TIME_START * 60 && eMin <= TIME_END * 60 &&
+    sMin < eMin;
+  if (!validTime) { showErr('errTime'); ok = false; }
+
+  if (ok) {
+    const overlap = currentTasks().some(t =>
+      t.machineId === machineId &&
+      t.id !== editingTaskId &&
+      timeToMin(t.start) < eMin &&
+      timeToMin(t.end) > sMin
+    );
+    if (overlap) { showErr('errOverlap'); ok = false; }
+  }
+
+  if (!ok) return;
+
+  if (editingTaskId) {
+    const idx = currentTasks().findIndex(t => t.id === editingTaskId);
+    if (idx !== -1) {
+      schedule[currentDate][idx] = { id: editingTaskId, machineId, name, start, end, color: selectedColor };
+    }
+  } else {
+    currentTasks().push({ id: uid(), machineId, name, start, end, color: selectedColor });
+  }
+  saveToHistory(LS_TASK_KEY, name);
+  buildChart();
+  closeAddModal();
+});
+
+document.getElementById('addDelete').addEventListener('click', () => {
+  if (!editingTaskId) return;
+  if (!confirm('この作業を削除しますか？')) return;
+  schedule[currentDate] = currentTasks().filter(t => t.id !== editingTaskId);
+  buildChart();
+  closeAddModal();
+});
+
+/* ═══════════════════════════════════════════════════════
+   作業詳細モーダル（編集モードで addOverlay を開く）
+═══════════════════════════════════════════════════════ */
+function openDetailModal(taskId) {
+  const t = currentTasks().find(t => t.id === taskId);
+  if (!t) return;
+  openAddModal(t.machineId, t.start, taskId);
+}
+
+/* ═══════════════════════════════════════════════════════
+   機械追加モーダル
+═══════════════════════════════════════════════════════ */
+function buildMachinePickers() {
+  const iconPicker = document.getElementById('iconPicker');
+  iconPicker.innerHTML = '';
+
+  /* ── 先頭に「なし」ボタン（デフォルト選択） ── */
+  const noneBtn = document.createElement('button');
+  noneBtn.type = 'button';
+  noneBtn.className = 'icon-opt icon-opt-none' + (selectedIcon === '' ? ' selected' : '');
+  noneBtn.textContent = 'なし';
+  noneBtn.dataset.icon = '';
+  noneBtn.title = 'アイコンを表示しない';
+  noneBtn.addEventListener('click', () => {
+    document.querySelectorAll('.icon-opt').forEach(b => b.classList.remove('selected'));
+    noneBtn.classList.add('selected');
+    selectedIcon = '';
+  });
+  iconPicker.appendChild(noneBtn);
+
+  /* ── 絵文字アイコン一覧 ── */
+  ICON_OPTS.forEach(icon => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'icon-opt' + (icon === selectedIcon ? ' selected' : '');
+    btn.textContent = icon;
+    btn.dataset.icon = icon;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.icon-opt').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedIcon = icon;
+    });
+    iconPicker.appendChild(btn);
+  });
+
+  const bgPicker = document.getElementById('iconBgPicker');
+  bgPicker.innerHTML = '';
+  ICONBG_OPTS.forEach((color, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'iconbg-opt' + (i === 0 ? ' selected' : '');
+    btn.style.background = color;
+    btn.dataset.bg = color;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.iconbg-opt').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedIconBg = color;
+    });
+    bgPicker.appendChild(btn);
+  });
+}
+
+function openAddMachineModal() {
+  selectedIcon   = '';            // デフォルト「なし」
+  selectedIconBg = ICONBG_OPTS[0];
+  document.getElementById('mName').value = '';
+  clearErrors('errMName', 'errMDup');
+  buildMachinePickers();
+  renderSuggests('machineNameSuggests', LS_MACHINE_KEY, 'mName');
+  document.getElementById('machineOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('mName').focus(), 80);
+}
+
+function closeAddMachineModal() {
+  document.getElementById('machineOverlay').classList.remove('open');
+}
+
+document.getElementById('addMachineBtn').addEventListener('click', openAddMachineModal);
+document.getElementById('machineClose').addEventListener('click', closeAddMachineModal);
+document.getElementById('machineCancel').addEventListener('click', closeAddMachineModal);
+document.getElementById('machineOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeAddMachineModal();
+});
+
+document.getElementById('machineSave').addEventListener('click', () => {
+  clearErrors('errMName', 'errMDup');
+  const name = document.getElementById('mName').value.trim();
+  let ok = true;
+  if (!name) { showErr('errMName'); ok = false; }
+  if (ok && machines.some(m => m.name === name)) { showErr('errMDup'); ok = false; }
+  if (!ok) return;
+
+  machines.push({ id: 'machine-' + uid(), name, icon: selectedIcon, iconBg: selectedIconBg });
+  saveToHistory(LS_MACHINE_KEY, name);
+  buildChart();
+  closeAddMachineModal();
+});
+
+/* ═══════════════════════════════════════════════════════
+   機械名インライン編集
+═══════════════════════════════════════════════════════ */
+function startMachineEdit(machineId, nameEl, editBtn, delBtn) {
+  const m = machines.find(m => m.id === machineId);
+  if (!m) return;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'machine-name-input';
+  input.value = m.name;
+  input.maxLength = 20;
+
+  /* 編集中は鉛筆・削除ボタンを隠す */
+  editBtn.style.opacity = '0';
+  editBtn.style.pointerEvents = 'none';
+  delBtn.style.opacity  = '0';
+  delBtn.style.pointerEvents = 'none';
+
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let committed = false;
+
+  function commit() {
+    if (committed) return;
+    const newName = input.value.trim();
+    if (newName && newName !== m.name) {
+      if (machines.some(mm => mm.name === newName && mm.id !== machineId)) {
+        input.classList.add('has-error');
+        input.title = '同じ名前の機械が既に存在します';
+        committed = false;
+        return;
+      }
+      m.name = newName;
+      saveToHistory(LS_MACHINE_KEY, newName);
+    }
+    committed = true;
+    buildChart();
+  }
+
+  function cancel() {
+    if (committed) return;
+    committed = true;
+    buildChart();
+  }
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+  });
+  input.addEventListener('blur', commit);
+}
+
+/* ═══════════════════════════════════════════════════════
+   機械削除（全日付から紐づく作業も削除）
+═══════════════════════════════════════════════════════ */
+function deleteMachine(machineId, machineName) {
+  if (!confirm(`「${machineName}」を削除しますか？\nすべての日付のこの機械の作業も削除されます。`)) return;
+  machines = machines.filter(m => m.id !== machineId);
+  Object.keys(schedule).forEach(date => {
+    schedule[date] = schedule[date].filter(t => t.machineId !== machineId);
+  });
+  buildChart();
+}
+
+/* ═══════════════════════════════════════════════════════
+   カラーピッカー（作業追加モーダル）
+═══════════════════════════════════════════════════════ */
+document.getElementById('colorPicker').addEventListener('click', e => {
+  const opt = e.target.closest('.color-opt');
+  if (!opt) return;
+  document.querySelectorAll('.color-opt').forEach(o => o.classList.remove('selected'));
+  opt.classList.add('selected');
+  selectedColor = opt.dataset.c;
+});
+
+/* ═══════════════════════════════════════════════════════
+   機械名列リサイズ（イベントデリゲーション：全行対応）
+═══════════════════════════════════════════════════════ */
+const LABEL_MIN_PX = 80;
+const LABEL_MAX_PX = 360;
+
+(function initResize() {
+  let activeHandle = null, startX = 0, startW = 0;
+
+  function getLabelW() {
+    return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--label-w'));
+  }
+  function setLabelW(px) {
+    document.documentElement.style.setProperty('--label-w',
+      Math.max(LABEL_MIN_PX, Math.min(LABEL_MAX_PX, px)) + 'px');
+  }
+
+  document.addEventListener('pointerdown', e => {
+    const handle = e.target.closest('.resize-handle');
+    if (!handle) return;
+    activeHandle = handle;
+    startX = e.clientX;
+    startW = getLabelW();
+    handle.classList.add('is-resizing');
+    document.body.classList.add('col-resizing');
+    handle.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  document.addEventListener('pointermove', e => {
+    if (!activeHandle) return;
+    setLabelW(startW + (e.clientX - startX));
+  });
+
+  function onEnd(e) {
+    if (!activeHandle) return;
+    activeHandle.classList.remove('is-resizing');
+    document.body.classList.remove('col-resizing');
+    try { activeHandle.releasePointerCapture(e.pointerId); } catch {}
+    activeHandle = null;
+  }
+  document.addEventListener('pointerup',     onEnd);
+  document.addEventListener('pointercancel', onEnd);
+})();
+
+/* ═══════════════════════════════════════════════════════
+   初期化
+═══════════════════════════════════════════════════════ */
+buildTimeAxis();              // 時間軸は固定なので一度だけ
+setCurrentDate(currentDate);  // 日付バッジ・dateInput・チャートを一括セット
+</script>
+</body>
+</html>
