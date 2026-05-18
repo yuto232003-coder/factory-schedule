@@ -693,6 +693,83 @@
   }
   .suggest-chip:active { transform: translateY(0) scale(.97); }
 
+  /* ── ログイン画面 ── */
+  #loginOverlay {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(145deg, #1e3a8a 0%, #2563eb 100%);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    transition: opacity .4s ease;
+  }
+  #loginOverlay.fade-out {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .login-card {
+    background: #fff;
+    border-radius: 24px;
+    padding: 48px 40px 40px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.35);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  .login-logo { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .login-logo h1 { font-size: 1.25rem; font-weight: 800; color: var(--text); text-align: center; }
+  .login-logo p  { font-size: .85rem; color: var(--muted); text-align: center; }
+  .login-input {
+    width: 100%;
+    padding: 18px 20px;
+    font-size: 1.2rem;
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    color: var(--text);
+    font-family: inherit;
+    letter-spacing: .15em;
+    text-align: center;
+    transition: border-color .15s;
+  }
+  .login-input:focus { outline: none; border-color: var(--accent); }
+  .login-input.has-error {
+    border-color: var(--danger);
+    animation: loginShake .3s ease;
+  }
+  @keyframes loginShake {
+    0%,100% { transform: translateX(0); }
+    25%      { transform: translateX(-8px); }
+    75%      { transform: translateX(8px); }
+  }
+  .login-btn {
+    width: 100%;
+    padding: 18px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: .05em;
+    transition: background .15s, transform .1s;
+  }
+  .login-btn:hover  { background: #1d4ed8; }
+  .login-btn:active { transform: scale(.98); }
+  .login-error {
+    color: var(--danger);
+    font-size: .9rem;
+    font-weight: 700;
+    text-align: center;
+    min-height: 1.3em;
+  }
+
   /* ── レスポンシブ ── */
   @media (max-width: 700px) {
     :root { --label-w: 90px; --row-h: 68px; }
@@ -706,6 +783,24 @@
 </style>
 </head>
 <body>
+
+<!-- ── ログイン画面 ── -->
+<div id="loginOverlay">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <h1>機械稼働タイムテーブル</h1>
+      <p>アクセスにはパスワードが必要です</p>
+    </div>
+    <input type="password" id="loginInput" class="login-input"
+           placeholder="パスワードを入力" maxlength="50" autocomplete="current-password">
+    <div class="login-error" id="loginError"></div>
+    <button class="login-btn" id="loginBtn">ログイン</button>
+  </div>
+</div>
 
 <!-- ── アプリヘッダー ── -->
 <header class="app-header">
@@ -872,6 +967,45 @@
 </div>
 
 <script>
+/* ═══════════════════════════════════════════════════════
+   認証設定
+   ↓ ここのパスワードを自由に書き換えてください ↓
+═══════════════════════════════════════════════════════ */
+const CORRECT_PASSWORD = "endo";
+const LS_AUTH_KEY      = "fst_auth";
+
+(function initAuth() {
+  const overlay  = document.getElementById('loginOverlay');
+  const input    = document.getElementById('loginInput');
+  const btn      = document.getElementById('loginBtn');
+  const errEl    = document.getElementById('loginError');
+
+  /* ログイン済みなら即非表示（画面フラッシュなし） */
+  if (localStorage.getItem(LS_AUTH_KEY) === '1') {
+    overlay.style.display = 'none';
+    return;
+  }
+
+  function tryLogin() {
+    if (input.value === CORRECT_PASSWORD) {
+      localStorage.setItem(LS_AUTH_KEY, '1');
+      errEl.textContent = '';
+      overlay.classList.add('fade-out');
+      setTimeout(() => { overlay.style.display = 'none'; }, 420);
+    } else {
+      errEl.textContent = 'パスワードが違います';
+      input.classList.add('has-error');
+      input.value = '';
+      setTimeout(() => input.classList.remove('has-error'), 350);
+      setTimeout(() => input.focus(), 10);
+    }
+  }
+
+  btn.addEventListener('click', tryLogin);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+  setTimeout(() => input.focus(), 100);
+})();
+
 /* ═══════════════════════════════════════════════════════
    タイムライン定数（15分単位）
 ═══════════════════════════════════════════════════════ */
