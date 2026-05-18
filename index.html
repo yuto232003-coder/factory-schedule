@@ -724,9 +724,13 @@
   .login-logo { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .login-logo h1 { font-size: 1.25rem; font-weight: 800; color: var(--text); text-align: center; }
   .login-logo p  { font-size: .85rem; color: var(--muted); text-align: center; }
+  .login-input-wrap {
+    width: 100%;
+    position: relative;
+  }
   .login-input {
     width: 100%;
-    padding: 18px 20px;
+    padding: 18px 52px 18px 20px;
     font-size: 1.2rem;
     border: 2px solid var(--border);
     border-radius: 14px;
@@ -737,6 +741,23 @@
     transition: border-color .15s;
   }
   .login-input:focus { outline: none; border-color: var(--accent); }
+  .login-pw-toggle {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    padding: 6px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color .15s, background .1s;
+  }
+  .login-pw-toggle:hover { color: var(--accent); background: var(--accent-light); }
   .login-input.has-error {
     border-color: var(--danger);
     animation: loginShake .3s ease;
@@ -795,8 +816,16 @@
       <h1>機械稼働タイムテーブル</h1>
       <p>アクセスにはパスワードが必要です</p>
     </div>
-    <input type="password" id="loginInput" class="login-input"
-           placeholder="パスワードを入力" maxlength="50" autocomplete="current-password">
+    <div class="login-input-wrap">
+      <input type="password" id="loginInput" class="login-input"
+             placeholder="パスワードを入力" maxlength="50" autocomplete="current-password">
+      <button type="button" class="login-pw-toggle" id="loginPwToggle" title="パスワードを表示">
+        <svg id="eyeIcon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
     <div class="login-error" id="loginError"></div>
     <button class="login-btn" id="loginBtn">ログイン</button>
   </div>
@@ -1004,6 +1033,18 @@ const LS_AUTH_KEY      = "fst_auth";
   btn.addEventListener('click', tryLogin);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
   setTimeout(() => input.focus(), 100);
+
+  /* ── パスワード表示トグル ── */
+  const toggleBtn = document.getElementById('loginPwToggle');
+  const eyeOpen = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const eyeOff  = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+  toggleBtn.addEventListener('click', () => {
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    toggleBtn.innerHTML = showing ? eyeOpen : eyeOff;
+    toggleBtn.title     = showing ? 'パスワードを表示' : 'パスワードを隠す';
+    input.focus();
+  });
 })();
 
 /* ═══════════════════════════════════════════════════════
