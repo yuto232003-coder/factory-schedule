@@ -1001,7 +1001,6 @@
    ↓ ここのパスワードを自由に書き換えてください ↓
 ═══════════════════════════════════════════════════════ */
 const CORRECT_PASSWORD = "endo";
-const LS_AUTH_KEY      = "fst_auth";
 
 (function initAuth() {
   const overlay  = document.getElementById('loginOverlay');
@@ -1009,15 +1008,8 @@ const LS_AUTH_KEY      = "fst_auth";
   const btn      = document.getElementById('loginBtn');
   const errEl    = document.getElementById('loginError');
 
-  /* ログイン済みなら即非表示（画面フラッシュなし） */
-  if (localStorage.getItem(LS_AUTH_KEY) === '1') {
-    overlay.style.display = 'none';
-    return;
-  }
-
   function tryLogin() {
     if (input.value === CORRECT_PASSWORD) {
-      localStorage.setItem(LS_AUTH_KEY, '1');
       errEl.textContent = '';
       overlay.classList.add('fade-out');
       setTimeout(() => { overlay.style.display = 'none'; }, 420);
