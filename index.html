@@ -821,7 +821,7 @@
   .nav-tab:hover { color: var(--accent); }
   .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-  /* ── 月次カレンダー ── */
+  /* ── 月次ガントチャート ── */
   .month-toolbar {
     display: flex;
     align-items: center;
@@ -862,54 +862,87 @@
     margin-left: 4px;
   }
   .month-today-btn:hover { background: var(--accent-light); color: var(--accent); }
-  .cal-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
-    padding: 4px;
+
+  /* ガントヘッダー行 */
+  .month-gtt-header {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--surface);
+    border-bottom: 2px solid var(--border-mid);
   }
-  .cal-dow {
-    text-align: center;
-    font-size: .75rem;
+  .month-axis { display: flex; }
+  .month-day-hdr {
+    width: 48px;
+    flex-shrink: 0;
+    padding: 4px 2px 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    font-size: .68rem;
     font-weight: 700;
     color: var(--muted);
-    padding: 6px 0;
-  }
-  .cal-dow:first-child { color: #ef4444; }
-  .cal-dow:last-child  { color: #3b82f6; }
-  .cal-cell {
-    background: var(--surface);
-    border-radius: 10px;
-    border: 1.5px solid var(--border);
-    min-height: 88px;
-    padding: 7px 6px 5px;
+    border-left: 1px solid var(--border);
+    background: var(--bg);
     cursor: pointer;
-    transition: border-color .12s, background .12s;
+    transition: background .1s;
+    user-select: none;
+  }
+  .month-day-hdr:hover { background: var(--accent-light); color: var(--accent); }
+  .month-day-hdr .mday-num { font-size: .82rem; font-weight: 800; color: var(--text); }
+  .month-day-hdr.is-today  { background: var(--accent-light); color: var(--accent); }
+  .month-day-hdr.is-today .mday-num { color: var(--accent); }
+  .month-day-hdr.is-selected { background: var(--accent); color: #fff; }
+  .month-day-hdr.is-selected .mday-num { color: #fff; }
+  .month-day-hdr.dow-sun { color: #ef4444; }
+  .month-day-hdr.dow-sun .mday-num { color: #ef4444; }
+  .month-day-hdr.dow-sat { color: #3b82f6; }
+  .month-day-hdr.dow-sat .mday-num { color: #3b82f6; }
+
+  /* ガント機械行 */
+  .month-machine-row {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .month-timeline-row { display: flex; flex: 1; }
+  .month-day-slot {
+    width: 48px;
+    flex-shrink: 0;
+    min-height: var(--row-h);
+    padding: 3px 2px;
+    border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     gap: 2px;
-    overflow: hidden;
+    cursor: pointer;
+    transition: background .1s;
   }
-  .cal-cell:hover { border-color: var(--accent); background: var(--accent-light); }
-  .cal-cell.other-month { opacity: .3; pointer-events: none; }
-  .cal-cell.is-today .cal-date-num {
-    background: var(--accent);
-    color: #fff;
-    border-radius: 50%;
-  }
-  .cal-cell.is-selected { border-color: var(--accent); background: #eff6ff; }
-  .cal-date-num {
-    font-size: .82rem;
+  .month-day-slot:hover { background: var(--bg); }
+  .month-day-slot.is-today-col    { background: #eff6ff; }
+  .month-day-slot.is-selected-col { background: #dbeafe; }
+  .month-day-slot.is-weekend-col  { background: #fafafa; }
+
+  /* タスクチップ */
+  .month-task-chip {
+    width: 100%;
+    font-size: .62rem;
     font-weight: 700;
-    color: var(--text);
-    width: 24px; height: 24px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    margin-bottom: 1px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    border: none;
+    text-align: left;
+    font-family: inherit;
+    line-height: 1.45;
+    display: block;
   }
-  .cal-tasks { display: flex; flex-direction: column; gap: 2px; flex: 1; overflow: hidden; }
-  .cal-task-bar { height: 5px; border-radius: 3px; }
-  .cal-task-more { font-size: .67rem; color: var(--muted); font-weight: 600; padding: 0 2px; }
+  .month-task-chip:hover { filter: brightness(.9); }
+  .month-task-more { font-size: .6rem; color: var(--muted); font-weight: 700; padding: 0 3px; line-height: 1.4; }
 
   /* ── 工番マスタ ── */
   .master-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -1112,8 +1145,16 @@
       <button class="month-nav-btn" id="nextMonth">›</button>
       <button class="month-today-btn" id="monthToday">今月</button>
     </div>
-    <div class="chart-card" style="padding:16px 16px 12px;">
-      <div class="cal-grid" id="calGrid"></div>
+    <div class="chart-card">
+      <div class="chart-scroll">
+        <div class="chart-inner">
+          <div class="month-gtt-header" id="monthHeader">
+            <div class="corner">機械</div>
+            <div class="month-axis" id="monthAxis"></div>
+          </div>
+          <div id="monthBody"></div>
+        </div>
+      </div>
     </div>
   </div><!-- /#view-monthly -->
 
@@ -2062,72 +2103,101 @@ let calMonth = new Date().getMonth();
 
 function buildMonthlyView() {
   document.getElementById('monthTitle').textContent = `${calYear}年 ${calMonth + 1}月`;
-  const grid = document.getElementById('calGrid');
-  grid.innerHTML = '';
 
-  ['日','月','火','水','木','金','土'].forEach(d => {
-    const el = document.createElement('div');
-    el.className = 'cal-dow';
-    el.textContent = d;
-    grid.appendChild(el);
-  });
-
-  const firstDay = new Date(calYear, calMonth, 1);
-  const lastDay  = new Date(calYear, calMonth + 1, 0);
-  const startDow = firstDay.getDay();
-
-  for (let i = 0; i < startDow; i++)
-    grid.appendChild(makeCalCell(new Date(calYear, calMonth, -(startDow - i - 1)), true));
-  for (let d = 1; d <= lastDay.getDate(); d++)
-    grid.appendChild(makeCalCell(new Date(calYear, calMonth, d), false));
-  const rem = (startDow + lastDay.getDate()) % 7;
-  if (rem > 0)
-    for (let i = 1; i <= 7 - rem; i++)
-      grid.appendChild(makeCalCell(new Date(calYear, calMonth + 1, i), true));
-}
-
-function makeCalCell(date, otherMonth) {
-  const dateKey = toDateKey(date);
-  const tasks   = schedule[dateKey] || [];
+  const lastDay = new Date(calYear, calMonth + 1, 0).getDate();
   const today   = toDateKey(new Date());
 
-  const cell = document.createElement('div');
-  cell.className = 'cal-cell';
-  if (otherMonth)                             cell.classList.add('other-month');
-  if (dateKey === today)                      cell.classList.add('is-today');
-  if (dateKey === currentDate && !otherMonth) cell.classList.add('is-selected');
+  /* 日付ヘッダー */
+  const axis = document.getElementById('monthAxis');
+  axis.innerHTML = '';
+  for (let d = 1; d <= lastDay; d++) {
+    const date    = new Date(calYear, calMonth, d);
+    const dateKey = toDateKey(date);
+    const dow     = date.getDay();
+    const hdr     = document.createElement('div');
+    hdr.className = 'month-day-hdr';
+    if (dateKey === today)       hdr.classList.add('is-today');
+    if (dateKey === currentDate) hdr.classList.add('is-selected');
+    if (dow === 0) hdr.classList.add('dow-sun');
+    if (dow === 6) hdr.classList.add('dow-sat');
+    hdr.innerHTML = `<span class="mday-num">${d}</span><span>${'日月火水木金土'[dow]}</span>`;
+    hdr.addEventListener('click', () => { setCurrentDate(dateKey); showView('timetable'); });
+    axis.appendChild(hdr);
+  }
 
-  const num = document.createElement('div');
-  num.className   = 'cal-date-num';
-  num.textContent = date.getDate();
-  cell.appendChild(num);
+  /* 機械行 */
+  const body = document.getElementById('monthBody');
+  body.innerHTML = '';
 
-  if (tasks.length > 0) {
-    const wrap = document.createElement('div');
-    wrap.className = 'cal-tasks';
-    tasks.slice(0, 4).forEach(t => {
-      const bar = document.createElement('div');
-      bar.className        = 'cal-task-bar';
-      bar.style.background = COLOR_HEX[t.color] || '#94a3b8';
-      bar.title            = `${t.name}（${t.start}〜${t.end}）`;
-      wrap.appendChild(bar);
-    });
-    if (tasks.length > 4) {
-      const more = document.createElement('div');
-      more.className   = 'cal-task-more';
-      more.textContent = `+${tasks.length - 4}件`;
-      wrap.appendChild(more);
+  if (machines.length === 0) {
+    body.innerHTML = `<div class="empty-machines"><div class="empty-icon">🏗️</div><p>機械がありません。</p></div>`;
+    return;
+  }
+
+  machines.forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'month-machine-row';
+
+    /* ラベル列（タイムテーブルと共通CSS） */
+    const lbl = document.createElement('div');
+    lbl.className = 'machine-label';
+    if (m.icon) {
+      const iconEl = document.createElement('div');
+      iconEl.className = 'machine-icon';
+      iconEl.style.background = m.iconBg;
+      iconEl.textContent = m.icon;
+      lbl.appendChild(iconEl);
     }
-    cell.appendChild(wrap);
-  }
+    const nameEl = document.createElement('div');
+    nameEl.className = 'machine-name';
+    nameEl.textContent = m.name;
+    lbl.appendChild(nameEl);
+    row.appendChild(lbl);
 
-  if (!otherMonth) {
-    cell.addEventListener('click', () => {
-      setCurrentDate(dateKey);
-      showView('timetable');
-    });
-  }
-  return cell;
+    /* 日ごとのスロット */
+    const tl = document.createElement('div');
+    tl.className = 'month-timeline-row';
+
+    for (let d = 1; d <= lastDay; d++) {
+      const date     = new Date(calYear, calMonth, d);
+      const dateKey  = toDateKey(date);
+      const dow      = date.getDay();
+      const dayTasks = (schedule[dateKey] || []).filter(t => t.machineId === m.id);
+
+      const slot = document.createElement('div');
+      slot.className = 'month-day-slot';
+      if (dateKey === today)       slot.classList.add('is-today-col');
+      if (dateKey === currentDate) slot.classList.add('is-selected-col');
+      if (dow === 0 || dow === 6)  slot.classList.add('is-weekend-col');
+
+      slot.addEventListener('click', () => { setCurrentDate(dateKey); showView('timetable'); });
+
+      dayTasks.slice(0, 3).forEach(t => {
+        const chip = document.createElement('button');
+        chip.className   = `month-task-chip color-${t.color}`;
+        chip.textContent = t.name;
+        chip.title       = `${t.name}（${t.start}〜${t.end}）`;
+        chip.addEventListener('click', e => {
+          e.stopPropagation();
+          setCurrentDate(dateKey);
+          openDetailModal(t.id);
+        });
+        slot.appendChild(chip);
+      });
+
+      if (dayTasks.length > 3) {
+        const more = document.createElement('div');
+        more.className   = 'month-task-more';
+        more.textContent = `+${dayTasks.length - 3}`;
+        slot.appendChild(more);
+      }
+
+      tl.appendChild(slot);
+    }
+
+    row.appendChild(tl);
+    body.appendChild(row);
+  });
 }
 
 document.getElementById('prevMonth').addEventListener('click', () => {
