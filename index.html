@@ -405,6 +405,38 @@
     box-shadow: 0 5px 16px rgba(0,0,0,.2);
   }
   .task-block:active { transform: translateY(0); }
+  /* 複数日作業 */
+  .task-block.is-multiday { opacity: .93; }
+  .task-block.has-prev { border-left: none; border-radius: 0 9px 9px 0; }
+  .task-block.has-next { border-right: none; border-radius: 9px 0 0 9px; }
+  .task-block.has-prev.has-next { border-radius: 0; }
+  .task-block.has-prev::before {
+    content: '◄';
+    font-size: .55rem;
+    opacity: .5;
+    position: absolute;
+    left: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+  .task-block.has-next::after {
+    content: '►';
+    font-size: .55rem;
+    opacity: .5;
+    position: absolute;
+    right: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+  .multiday-days-info {
+    font-size: .78rem;
+    color: var(--accent);
+    font-weight: 700;
+    margin-top: 6px;
+    min-height: 1.1em;
+  }
   .task-inner {
     pointer-events: none;
     overflow: hidden;
@@ -1232,6 +1264,18 @@
       </div>
       <div class="time-row">
         <div class="form-group">
+          <label>開始日</label>
+          <input type="date" id="fStartDate">
+        </div>
+        <div class="form-group">
+          <label>終了日</label>
+          <input type="date" id="fEndDate">
+        </div>
+      </div>
+      <div class="multiday-days-info" id="multidayInfo"></div>
+      <div class="error-msg" id="errDate">終了日は開始日以降を入力してください</div>
+      <div class="time-row">
+        <div class="form-group">
           <label>開始時間</label>
           <!-- step="900" = 15分単位 -->
           <input type="time" id="fStart" min="08:00" max="18:00" step="900">
@@ -1368,22 +1412,22 @@ let machines = [
   { id: 'assembly-1', name: '組み立てライン1', icon: '🏭', iconBg: '#fef9c3' },
 ];
 
-// { 'YYYY-MM-DD': [ {id, machineId, name, start, end, color}, ... ] }
-const schedule = {};
+// 全作業（日付またぎ対応フラット配列）: [{id, machineId, name, startDate, endDate, start, end, color, koban}, ...]
+let allTasks = [];
 
-let currentDate   = toDateKey(new Date());
+let currentDate    = toDateKey(new Date());
 let selectedColor  = 'blue';
 let selectedIcon   = ICON_OPTS[0];
 let selectedIconBg = ICONBG_OPTS[0];
 let editingTaskId  = null;
 
-/* ── サンプルデータ（今日分） ── */
-schedule[currentDate] = [
-  { id: uid(), machineId: 'press-a',    name: 'ロット101製造',    start: '09:00', end: '11:30', color: 'blue'   },
-  { id: uid(), machineId: 'press-a',    name: '段取り替え',        start: '13:15', end: '14:00', color: 'amber'  },
-  { id: uid(), machineId: 'cut-b',      name: '定期メンテナンス',  start: '13:00', end: '15:15', color: 'rose'   },
-  { id: uid(), machineId: 'assembly-1', name: 'ロット202組立',     start: '08:30', end: '12:00', color: 'green'  },
-  { id: uid(), machineId: 'assembly-1', name: '品質検査',          start: '15:45', end: '17:30', color: 'purple' },
+/* ── サンプルデータ ── */
+allTasks = [
+  { id: uid(), machineId: 'press-a',    name: 'ロット101製造',    startDate: currentDate, endDate: currentDate, start: '09:00', end: '11:30', color: 'blue'   },
+  { id: uid(), machineId: 'press-a',    name: '段取り替え',        startDate: currentDate, endDate: currentDate, start: '13:15', end: '14:00', color: 'amber'  },
+  { id: uid(), machineId: 'cut-b',      name: '定期メンテナンス',  startDate: currentDate, endDate: currentDate, start: '13:00', end: '15:15', color: 'rose'   },
+  { id: uid(), machineId: 'assembly-1', name: 'ロット202組立',     startDate: currentDate, endDate: currentDate, start: '08:30', end: '12:00', color: 'green'  },
+  { id: uid(), machineId: 'assembly-1', name: '品質検査',          startDate: currentDate, endDate: currentDate, start: '15:45', end: '17:30', color: 'purple' },
 ];
 
 /* ═══════════════════════════════════════════════════════
@@ -1395,10 +1439,20 @@ function toDateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-/** 選択日のタスク配列（なければ初期化） */
+/** 指定日に重なる全作業（startDate ≤ dateKey ≤ endDate） */
+function getTasksForDate(dateKey) {
+  return allTasks.filter(t => t.startDate <= dateKey && t.endDate >= dateKey);
+}
+
+/** 選択日のタスク */
 function currentTasks() {
-  if (!schedule[currentDate]) schedule[currentDate] = [];
-  return schedule[currentDate];
+  return getTasksForDate(currentDate);
+}
+
+/** 作業の実質分数（複数日は作業日 × 10h + 端数） */
+function taskDurationMin(t) {
+  const days = Math.round((new Date(t.endDate + 'T00:00') - new Date(t.startDate + 'T00:00')) / 86400000);
+  return days * (TIME_END - TIME_START) * 60 + timeToMin(t.end) - timeToMin(t.start);
 }
 
 /** "HH:MM" → 分数 */
@@ -1496,14 +1550,9 @@ function saveKobanMaster(data) {
 }
 
 function getKobanRecords(koban) {
-  const recs = [];
-  Object.values(schedule).forEach(tasks => {
-    tasks.forEach(t => {
-      if (t.koban === koban)
-        recs.push({ duration: timeToMin(t.end) - timeToMin(t.start) });
-    });
-  });
-  return recs;
+  return allTasks
+    .filter(t => t.koban === koban)
+    .map(t => ({ duration: taskDurationMin(t) }));
 }
 
 function minToHM(min) {
@@ -1670,29 +1719,43 @@ function buildChart() {
     /* 作業ブロック配置（絶対位置：ピクセル単位） */
     currentTasks()
       .filter(t => t.machineId === m.id)
-      .forEach(t => tl.appendChild(createTaskBlock(t)));
+      .forEach(t => tl.appendChild(createTaskBlock(t, currentDate)));
 
     row.appendChild(tl);
     body.appendChild(row);
   });
 }
 
-/* ── 作業ブロック DOM 生成 ── */
-function createTaskBlock(t) {
-  const startSlot = timeToSlot(t.start);
-  const endSlot   = timeToSlot(t.end);
+/* ── 作業ブロック DOM 生成（複数日対応） ── */
+function createTaskBlock(t, dateKey) {
+  const isMulti   = t.startDate !== t.endDate;
+  const isStart   = t.startDate === dateKey;
+  const isEnd     = t.endDate   === dateKey;
+  const dispStart = isStart ? t.start : `${String(TIME_START).padStart(2,'0')}:00`;
+  const dispEnd   = isEnd   ? t.end   : `${String(TIME_END).padStart(2,'0')}:00`;
+
+  const startSlot = timeToSlot(dispStart);
+  const endSlot   = timeToSlot(dispEnd);
   const leftPx    = startSlot * SLOT_PX;
   const widthPx   = (endSlot - startSlot) * SLOT_PX;
 
   const block = document.createElement('button');
-  block.className    = `task-block color-${t.color}`;
-  block.style.left   = `${leftPx + 2}px`;
-  block.style.width  = `${widthPx - 4}px`;
+  block.className = `task-block color-${t.color}`;
+  if (isMulti)           block.classList.add('is-multiday');
+  if (isMulti && !isStart) block.classList.add('has-prev');
+  if (isMulti && !isEnd)   block.classList.add('has-next');
+  block.style.left     = `${leftPx + (isMulti && !isStart ? 0 : 2)}px`;
+  block.style.width    = `${widthPx - (isMulti ? (isStart ? 2 : 0) + (isEnd ? 2 : 0) : 4)}px`;
   block.dataset.taskId = t.id;
+
+  const timeLabel = isMulti
+    ? `${t.startDate.slice(5).replace('-','/')}〜${t.endDate.slice(5).replace('-','/')}`
+    : `${t.start}〜${t.end}`;
+
   block.innerHTML = `
     <div class="task-inner">
       <span class="task-name">${escHtml(t.name)}</span>
-      <span class="task-time">${t.start}〜${t.end}</span>
+      <span class="task-time">${timeLabel}</span>
     </div>`;
   block.addEventListener('click', e => {
     e.stopPropagation();
@@ -1759,24 +1822,29 @@ function openAddModal(machineId, startTime = slotToTimeStr(0), taskId = null) {
   ).join('');
 
   if (isEdit) {
-    const t = currentTasks().find(t => t.id === taskId);
-    document.getElementById('fName').value  = t.name;
-    document.getElementById('fStart').value = t.start;
-    document.getElementById('fEnd').value   = t.end;
-    document.getElementById('fKoban').value = t.koban || '';
+    const t = allTasks.find(t => t.id === taskId);
+    document.getElementById('fName').value      = t.name;
+    document.getElementById('fStartDate').value = t.startDate;
+    document.getElementById('fEndDate').value   = t.endDate;
+    document.getElementById('fStart').value     = t.start;
+    document.getElementById('fEnd').value       = t.end;
+    document.getElementById('fKoban').value     = t.koban || '';
     setSelectedColor(t.color);
   } else {
     const sMin = timeToMin(startTime);
     const eMin = Math.min(sMin + 60, TIME_END * 60);
-    document.getElementById('fStart').value = startTime;
-    document.getElementById('fEnd').value   = `${String(Math.floor(eMin / 60)).padStart(2,'0')}:${String(eMin % 60).padStart(2,'0')}`;
-    document.getElementById('fName').value  = '';
-    document.getElementById('fKoban').value = '';
+    document.getElementById('fStartDate').value = currentDate;
+    document.getElementById('fEndDate').value   = currentDate;
+    document.getElementById('fStart').value     = startTime;
+    document.getElementById('fEnd').value       = `${String(Math.floor(eMin / 60)).padStart(2,'0')}:${String(eMin % 60).padStart(2,'0')}`;
+    document.getElementById('fName').value      = '';
+    document.getElementById('fKoban').value     = '';
     setSelectedColor('blue');
   }
 
+  updateMultidayInfo();
   document.getElementById('kobanHint').textContent = '';
-  clearErrors('errName', 'errTime', 'errOverlap');
+  clearErrors('errName', 'errTime', 'errOverlap', 'errDate');
   renderSuggests('taskNameSuggests', LS_TASK_KEY, 'fName');
   renderKobanSuggests();
   document.getElementById('addOverlay').classList.add('open');
@@ -1786,6 +1854,9 @@ function openAddModal(machineId, startTime = slotToTimeStr(0), taskId = null) {
 function closeAddModal() {
   document.getElementById('addOverlay').classList.remove('open');
   document.getElementById('fKoban').value = '';
+  document.getElementById('fStartDate').value = '';
+  document.getElementById('fEndDate').value   = '';
+  document.getElementById('multidayInfo').textContent = '';
   document.getElementById('kobanHint').textContent = '';
   editingTaskId = null;
 }
@@ -1800,46 +1871,54 @@ document.getElementById('addOverlay').addEventListener('click', e => {
 });
 
 document.getElementById('addSave').addEventListener('click', () => {
-  clearErrors('errName', 'errTime', 'errOverlap');
+  clearErrors('errName', 'errTime', 'errOverlap', 'errDate');
 
   const machineId = document.getElementById('fMachine').value;
-  const name  = document.getElementById('fName').value.trim();
-  const start = document.getElementById('fStart').value;
-  const end   = document.getElementById('fEnd').value;
-  const koban = document.getElementById('fKoban').value.trim();
+  const name      = document.getElementById('fName').value.trim();
+  const startDate = document.getElementById('fStartDate').value || currentDate;
+  const endDate   = document.getElementById('fEndDate').value   || currentDate;
+  const start     = document.getElementById('fStart').value;
+  const end       = document.getElementById('fEnd').value;
+  const koban     = document.getElementById('fKoban').value.trim();
 
   let ok = true;
   if (!name) { showErr('errName'); ok = false; }
 
-  /* 15分境界・範囲・前後チェック */
+  /* 日付チェック */
+  if (startDate > endDate) { showErr('errDate'); ok = false; }
+
+  /* 時刻チェック（15分境界・範囲・前後） */
   const sMin = timeToMin(start);
   const eMin = timeToMin(end);
   const validTime =
     start && end &&
     is15minAligned(start) && is15minAligned(end) &&
     sMin >= TIME_START * 60 && eMin <= TIME_END * 60 &&
-    sMin < eMin;
+    (startDate !== endDate || sMin < eMin);
   if (!validTime) { showErr('errTime'); ok = false; }
 
+  /* 重複チェック（同機械で日付範囲が重なる作業） */
   if (ok) {
-    const overlap = currentTasks().some(t =>
-      t.machineId === machineId &&
-      t.id !== editingTaskId &&
-      timeToMin(t.start) < eMin &&
-      timeToMin(t.end) > sMin
-    );
+    const overlap = allTasks.some(t => {
+      if (t.machineId !== machineId || t.id === editingTaskId) return false;
+      if (t.endDate < startDate || t.startDate > endDate) return false;
+      /* 両方が同日の単日作業の場合のみ時刻レベルでチェック */
+      if (t.startDate === t.endDate && startDate === endDate && t.startDate === startDate) {
+        return timeToMin(t.start) < eMin && timeToMin(t.end) > sMin;
+      }
+      return true;
+    });
     if (overlap) { showErr('errOverlap'); ok = false; }
   }
 
   if (!ok) return;
 
+  const taskData = { machineId, name, startDate, endDate, start, end, color: selectedColor, koban };
   if (editingTaskId) {
-    const idx = currentTasks().findIndex(t => t.id === editingTaskId);
-    if (idx !== -1) {
-      schedule[currentDate][idx] = { id: editingTaskId, machineId, name, start, end, color: selectedColor, koban };
-    }
+    const idx = allTasks.findIndex(t => t.id === editingTaskId);
+    if (idx !== -1) allTasks[idx] = { id: editingTaskId, ...taskData };
   } else {
-    currentTasks().push({ id: uid(), machineId, name, start, end, color: selectedColor, koban });
+    allTasks.push({ id: uid(), ...taskData });
   }
   saveToHistory(LS_TASK_KEY, name);
   buildChart();
@@ -1849,7 +1928,7 @@ document.getElementById('addSave').addEventListener('click', () => {
 document.getElementById('addDelete').addEventListener('click', () => {
   if (!editingTaskId) return;
   if (!confirm('この作業を削除しますか？')) return;
-  schedule[currentDate] = currentTasks().filter(t => t.id !== editingTaskId);
+  allTasks = allTasks.filter(t => t.id !== editingTaskId);
   buildChart();
   closeAddModal();
 });
@@ -1858,7 +1937,7 @@ document.getElementById('addDelete').addEventListener('click', () => {
    作業詳細モーダル（編集モードで addOverlay を開く）
 ═══════════════════════════════════════════════════════ */
 function openDetailModal(taskId) {
-  const t = currentTasks().find(t => t.id === taskId);
+  const t = allTasks.find(t => t.id === taskId);
   if (!t) return;
   openAddModal(t.machineId, t.start, taskId);
 }
@@ -2012,10 +2091,8 @@ function startMachineEdit(machineId, nameEl, editBtn, delBtn) {
 ═══════════════════════════════════════════════════════ */
 function deleteMachine(machineId, machineName) {
   if (!confirm(`「${machineName}」を削除しますか？\nすべての日付のこの機械の作業も削除されます。`)) return;
-  machines = machines.filter(m => m.id !== machineId);
-  Object.keys(schedule).forEach(date => {
-    schedule[date] = schedule[date].filter(t => t.machineId !== machineId);
-  });
+  machines  = machines.filter(m => m.id !== machineId);
+  allTasks  = allTasks.filter(t => t.machineId !== machineId);
   buildChart();
 }
 
@@ -2074,6 +2151,21 @@ const LABEL_MAX_PX = 360;
   document.addEventListener('pointerup',     onEnd);
   document.addEventListener('pointercancel', onEnd);
 })();
+
+/* ═══════════════════════════════════════════════════════
+   複数日バッジ更新
+═══════════════════════════════════════════════════════ */
+function updateMultidayInfo() {
+  const sd  = document.getElementById('fStartDate').value;
+  const ed  = document.getElementById('fEndDate').value;
+  const el  = document.getElementById('multidayInfo');
+  if (!sd || !ed || sd === ed) { el.textContent = ''; return; }
+  if (sd > ed) { el.textContent = ''; return; }
+  const days = Math.round((new Date(ed + 'T00:00') - new Date(sd + 'T00:00')) / 86400000) + 1;
+  el.textContent = `📅 ${days}日間の作業`;
+}
+document.getElementById('fStartDate').addEventListener('change', updateMultidayInfo);
+document.getElementById('fEndDate').addEventListener('change', updateMultidayInfo);
 
 /* ═══════════════════════════════════════════════════════
    工番入力ヒント（作業モーダル）
@@ -2162,7 +2254,7 @@ function buildMonthlyView() {
       const date     = new Date(calYear, calMonth, d);
       const dateKey  = toDateKey(date);
       const dow      = date.getDay();
-      const dayTasks = (schedule[dateKey] || []).filter(t => t.machineId === m.id);
+      const dayTasks = getTasksForDate(dateKey).filter(t => t.machineId === m.id);
 
       const slot = document.createElement('div');
       slot.className = 'month-day-slot';
