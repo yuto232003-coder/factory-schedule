@@ -791,6 +791,198 @@
     min-height: 1.3em;
   }
 
+  /* ── ナビゲーションタブ ── */
+  .app-nav {
+    background: var(--surface);
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    padding: 0 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 4px rgba(0,0,0,.06);
+    overflow-x: auto;
+  }
+  .nav-tab {
+    padding: 13px 20px;
+    font-size: .88rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+    margin-bottom: -2px;
+    white-space: nowrap;
+    letter-spacing: .02em;
+  }
+  .nav-tab:hover { color: var(--accent); }
+  .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── 月次カレンダー ── */
+  .month-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .month-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text);
+    min-width: 130px;
+    text-align: center;
+  }
+  .month-nav-btn {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 1.1rem;
+    color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    transition: background .12s, border-color .12s;
+  }
+  .month-nav-btn:hover { background: var(--accent-light); border-color: var(--accent); }
+  .month-today-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    font-size: .85rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background .12s, color .12s;
+    margin-left: 4px;
+  }
+  .month-today-btn:hover { background: var(--accent-light); color: var(--accent); }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    padding: 4px;
+  }
+  .cal-dow {
+    text-align: center;
+    font-size: .75rem;
+    font-weight: 700;
+    color: var(--muted);
+    padding: 6px 0;
+  }
+  .cal-dow:first-child { color: #ef4444; }
+  .cal-dow:last-child  { color: #3b82f6; }
+  .cal-cell {
+    background: var(--surface);
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    min-height: 88px;
+    padding: 7px 6px 5px;
+    cursor: pointer;
+    transition: border-color .12s, background .12s;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+  }
+  .cal-cell:hover { border-color: var(--accent); background: var(--accent-light); }
+  .cal-cell.other-month { opacity: .3; pointer-events: none; }
+  .cal-cell.is-today .cal-date-num {
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+  }
+  .cal-cell.is-selected { border-color: var(--accent); background: #eff6ff; }
+  .cal-date-num {
+    font-size: .82rem;
+    font-weight: 700;
+    color: var(--text);
+    width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-bottom: 1px;
+  }
+  .cal-tasks { display: flex; flex-direction: column; gap: 2px; flex: 1; overflow: hidden; }
+  .cal-task-bar { height: 5px; border-radius: 3px; }
+  .cal-task-more { font-size: .67rem; color: var(--muted); font-weight: 600; padding: 0 2px; }
+
+  /* ── 工番マスタ ── */
+  .master-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .master-search {
+    flex: 1; min-width: 180px;
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: .9rem;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--surface);
+    transition: border-color .15s;
+  }
+  .master-search:focus { outline: none; border-color: var(--accent); }
+  .master-table-wrap {
+    background: var(--surface);
+    border-radius: 14px;
+    border: 1.5px solid var(--border);
+    overflow: hidden;
+  }
+  .master-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .master-table th {
+    background: var(--bg);
+    padding: 11px 14px;
+    text-align: left;
+    font-size: .77rem;
+    font-weight: 700;
+    color: var(--muted);
+    border-bottom: 1.5px solid var(--border);
+    white-space: nowrap;
+  }
+  .master-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .master-table tr:last-child td { border-bottom: none; }
+  .master-table tr:hover td { background: var(--bg); }
+  .master-koban-badge {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: .85rem;
+    background: var(--accent-light);
+    color: var(--accent);
+    padding: 3px 10px;
+    border-radius: 6px;
+    display: inline-block;
+    letter-spacing: .04em;
+  }
+  .master-empty { text-align: center; padding: 48px 20px; color: var(--muted); font-size: .9rem; }
+  .master-form-card {
+    background: var(--surface);
+    border-radius: 14px;
+    border: 2px solid var(--accent);
+    padding: 20px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .master-form-card.open { display: block; }
+  .master-form-card h3 { font-size: .95rem; font-weight: 700; color: var(--text); margin-bottom: 14px; }
+  .master-form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  .master-form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px; }
+  .master-form-group label { font-size: .76rem; font-weight: 700; color: var(--muted); letter-spacing: .03em; }
+  .master-form-group input {
+    padding: 9px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: .9rem;
+    font-family: inherit;
+    color: var(--text);
+    transition: border-color .15s;
+  }
+  .master-form-group input:focus { outline: none; border-color: var(--accent); }
+  .master-form-err { color: var(--danger); font-size: .8rem; font-weight: 700; margin-top: 8px; min-height: 1.2em; }
+  .koban-hint { font-size: .78rem; color: var(--accent); font-weight: 600; margin-top: 4px; min-height: 1.1em; }
+
   /* ── レスポンシブ ── */
   @media (max-width: 700px) {
     :root { --label-w: 90px; --row-h: 68px; }
@@ -844,8 +1036,18 @@
   <div class="date-badge" id="todayBadge"></div>
 </header>
 
+<!-- ── ナビゲーションタブ ── -->
+<nav class="app-nav">
+  <button class="nav-tab active" data-view="timetable">📅 タイムテーブル</button>
+  <button class="nav-tab" data-view="monthly">🗓 月次カレンダー</button>
+  <button class="nav-tab" data-view="master">📋 工番マスタ</button>
+</nav>
+
 <!-- ── メインエリア ── -->
 <main class="main">
+
+  <!-- ── ビュー: タイムテーブル ── -->
+  <div id="view-timetable" class="view-panel">
 
   <!-- ツールバー -->
   <div class="toolbar">
@@ -900,6 +1102,61 @@
     </span>
   </div>
 
+  </div><!-- /#view-timetable -->
+
+  <!-- ── ビュー: 月次カレンダー ── -->
+  <div id="view-monthly" class="view-panel" hidden>
+    <div class="month-toolbar">
+      <button class="month-nav-btn" id="prevMonth">‹</button>
+      <span class="month-title" id="monthTitle"></span>
+      <button class="month-nav-btn" id="nextMonth">›</button>
+      <button class="month-today-btn" id="monthToday">今月</button>
+    </div>
+    <div class="chart-card" style="padding:16px 16px 12px;">
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+  </div><!-- /#view-monthly -->
+
+  <!-- ── ビュー: 工番マスタ ── -->
+  <div id="view-master" class="view-panel" hidden>
+    <div class="master-toolbar">
+      <input type="text" class="master-search" id="masterSearch" placeholder="工番・品名で検索…">
+      <button class="btn btn-primary" id="masterAddBtn">＋ 工番を登録</button>
+    </div>
+    <div class="master-form-card" id="masterFormCard">
+      <h3 id="masterFormTitle">工番を登録</h3>
+      <div class="master-form-row">
+        <div class="master-form-group">
+          <label>工番</label>
+          <input type="text" id="mfKoban" placeholder="例：K-001" maxlength="20">
+        </div>
+        <div class="master-form-group">
+          <label>品名</label>
+          <input type="text" id="mfProduct" placeholder="例：部品A" maxlength="30">
+        </div>
+        <div class="master-form-group" style="max-width:130px;">
+          <label>標準時間（分）</label>
+          <input type="number" id="mfStdMin" placeholder="120" min="1" max="9999">
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:1px;">
+          <button class="btn btn-secondary" id="masterFormCancel">キャンセル</button>
+          <button class="btn btn-primary" id="masterFormSave">保存</button>
+        </div>
+      </div>
+      <div class="master-form-err" id="masterFormErr"></div>
+    </div>
+    <div class="master-table-wrap">
+      <table class="master-table">
+        <thead>
+          <tr>
+            <th>工番</th><th>品名</th><th>標準時間</th><th>実績回数</th><th>平均時間</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="masterTableBody"></tbody>
+      </table>
+    </div>
+  </div><!-- /#view-master -->
+
 </main>
 
 <!-- ── FAB ── -->
@@ -925,6 +1182,12 @@
         <input type="text" id="fName" placeholder="例：ロット202製造" maxlength="30">
         <div class="error-msg" id="errName">作業名を入力してください</div>
         <div class="suggest-list" id="taskNameSuggests"></div>
+      </div>
+      <div class="form-group">
+        <label>工番 <span style="font-size:.78rem;color:var(--muted);font-weight:400;">（任意）</span></label>
+        <input type="text" id="fKoban" placeholder="例：K-001" maxlength="20">
+        <div class="koban-hint" id="kobanHint"></div>
+        <div class="suggest-list" id="kobanSuggests"></div>
       </div>
       <div class="time-row">
         <div class="form-group">
@@ -1133,6 +1396,8 @@ function escHtml(s) {
 const HISTORY_MAX    = 10;
 const LS_TASK_KEY    = 'fst_task_history';
 const LS_MACHINE_KEY = 'fst_machine_history';
+const LS_KOBAN_KEY   = 'fst_koban_master';
+const COLOR_HEX      = { blue:'#3b82f6', green:'#22c55e', amber:'#f59e0b', rose:'#f43f5e', purple:'#a855f7' };
 
 /** LocalStorage から履歴配列を読み込む */
 function loadHistory(key) {
@@ -1176,6 +1441,58 @@ function renderSuggests(listId, key, inputId) {
     });
     list.appendChild(chip);
   });
+}
+
+/* ═══════════════════════════════════════════════════════
+   工番マスタ ユーティリティ
+═══════════════════════════════════════════════════════ */
+function loadKobanMaster() {
+  try { return JSON.parse(localStorage.getItem(LS_KOBAN_KEY) || '{}'); }
+  catch { return {}; }
+}
+function saveKobanMaster(data) {
+  try { localStorage.setItem(LS_KOBAN_KEY, JSON.stringify(data)); } catch {}
+}
+
+function getKobanRecords(koban) {
+  const recs = [];
+  Object.values(schedule).forEach(tasks => {
+    tasks.forEach(t => {
+      if (t.koban === koban)
+        recs.push({ duration: timeToMin(t.end) - timeToMin(t.start) });
+    });
+  });
+  return recs;
+}
+
+function minToHM(min) {
+  const h = Math.floor(min / 60), m = min % 60;
+  if (h === 0) return `${m}分`;
+  if (m === 0) return `${h}時間`;
+  return `${h}時間${m}分`;
+}
+
+function renderKobanSuggests() {
+  const master = loadKobanMaster();
+  const list = document.getElementById('kobanSuggests');
+  if (!list) return;
+  list.innerHTML = '';
+  Object.values(master)
+    .sort((a, b) => a.koban.localeCompare(b.koban, 'ja'))
+    .forEach(k => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'suggest-chip';
+      chip.textContent = `${k.koban}：${k.productName}`;
+      chip.title = k.koban;
+      chip.addEventListener('click', () => {
+        const inp = document.getElementById('fKoban');
+        inp.value = k.koban;
+        inp.dispatchEvent(new Event('input'));
+        inp.focus();
+      });
+      list.appendChild(chip);
+    });
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1405,6 +1722,7 @@ function openAddModal(machineId, startTime = slotToTimeStr(0), taskId = null) {
     document.getElementById('fName').value  = t.name;
     document.getElementById('fStart').value = t.start;
     document.getElementById('fEnd').value   = t.end;
+    document.getElementById('fKoban').value = t.koban || '';
     setSelectedColor(t.color);
   } else {
     const sMin = timeToMin(startTime);
@@ -1412,17 +1730,22 @@ function openAddModal(machineId, startTime = slotToTimeStr(0), taskId = null) {
     document.getElementById('fStart').value = startTime;
     document.getElementById('fEnd').value   = `${String(Math.floor(eMin / 60)).padStart(2,'0')}:${String(eMin % 60).padStart(2,'0')}`;
     document.getElementById('fName').value  = '';
+    document.getElementById('fKoban').value = '';
     setSelectedColor('blue');
   }
 
+  document.getElementById('kobanHint').textContent = '';
   clearErrors('errName', 'errTime', 'errOverlap');
   renderSuggests('taskNameSuggests', LS_TASK_KEY, 'fName');
+  renderKobanSuggests();
   document.getElementById('addOverlay').classList.add('open');
   setTimeout(() => document.getElementById('fName').focus(), 80);
 }
 
 function closeAddModal() {
   document.getElementById('addOverlay').classList.remove('open');
+  document.getElementById('fKoban').value = '';
+  document.getElementById('kobanHint').textContent = '';
   editingTaskId = null;
 }
 
@@ -1442,6 +1765,7 @@ document.getElementById('addSave').addEventListener('click', () => {
   const name  = document.getElementById('fName').value.trim();
   const start = document.getElementById('fStart').value;
   const end   = document.getElementById('fEnd').value;
+  const koban = document.getElementById('fKoban').value.trim();
 
   let ok = true;
   if (!name) { showErr('errName'); ok = false; }
@@ -1471,10 +1795,10 @@ document.getElementById('addSave').addEventListener('click', () => {
   if (editingTaskId) {
     const idx = currentTasks().findIndex(t => t.id === editingTaskId);
     if (idx !== -1) {
-      schedule[currentDate][idx] = { id: editingTaskId, machineId, name, start, end, color: selectedColor };
+      schedule[currentDate][idx] = { id: editingTaskId, machineId, name, start, end, color: selectedColor, koban };
     }
   } else {
-    currentTasks().push({ id: uid(), machineId, name, start, end, color: selectedColor });
+    currentTasks().push({ id: uid(), machineId, name, start, end, color: selectedColor, koban });
   }
   saveToHistory(LS_TASK_KEY, name);
   buildChart();
@@ -1709,6 +2033,242 @@ const LABEL_MAX_PX = 360;
   document.addEventListener('pointerup',     onEnd);
   document.addEventListener('pointercancel', onEnd);
 })();
+
+/* ═══════════════════════════════════════════════════════
+   工番入力ヒント（作業モーダル）
+═══════════════════════════════════════════════════════ */
+document.getElementById('fKoban').addEventListener('input', e => {
+  const val    = e.target.value.trim();
+  const hintEl = document.getElementById('kobanHint');
+  if (!val) { hintEl.textContent = ''; return; }
+  const master  = loadKobanMaster();
+  const k       = master[val];
+  const records = getKobanRecords(val);
+  const avgMin  = records.length
+    ? Math.round(records.reduce((s, r) => s + r.duration, 0) / records.length)
+    : null;
+  const parts = [];
+  if (k)             parts.push(`📋 ${k.productName}`);
+  if (k?.stdMin)     parts.push(`標準: ${minToHM(k.stdMin)}`);
+  if (records.length) parts.push(`実績: ${records.length}回 / 平均 ${minToHM(avgMin)}`);
+  hintEl.textContent = parts.join('　');
+});
+
+/* ═══════════════════════════════════════════════════════
+   月次カレンダー
+═══════════════════════════════════════════════════════ */
+let calYear  = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+
+function buildMonthlyView() {
+  document.getElementById('monthTitle').textContent = `${calYear}年 ${calMonth + 1}月`;
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  ['日','月','火','水','木','金','土'].forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'cal-dow';
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay  = new Date(calYear, calMonth + 1, 0);
+  const startDow = firstDay.getDay();
+
+  for (let i = 0; i < startDow; i++)
+    grid.appendChild(makeCalCell(new Date(calYear, calMonth, -(startDow - i - 1)), true));
+  for (let d = 1; d <= lastDay.getDate(); d++)
+    grid.appendChild(makeCalCell(new Date(calYear, calMonth, d), false));
+  const rem = (startDow + lastDay.getDate()) % 7;
+  if (rem > 0)
+    for (let i = 1; i <= 7 - rem; i++)
+      grid.appendChild(makeCalCell(new Date(calYear, calMonth + 1, i), true));
+}
+
+function makeCalCell(date, otherMonth) {
+  const dateKey = toDateKey(date);
+  const tasks   = schedule[dateKey] || [];
+  const today   = toDateKey(new Date());
+
+  const cell = document.createElement('div');
+  cell.className = 'cal-cell';
+  if (otherMonth)                             cell.classList.add('other-month');
+  if (dateKey === today)                      cell.classList.add('is-today');
+  if (dateKey === currentDate && !otherMonth) cell.classList.add('is-selected');
+
+  const num = document.createElement('div');
+  num.className   = 'cal-date-num';
+  num.textContent = date.getDate();
+  cell.appendChild(num);
+
+  if (tasks.length > 0) {
+    const wrap = document.createElement('div');
+    wrap.className = 'cal-tasks';
+    tasks.slice(0, 4).forEach(t => {
+      const bar = document.createElement('div');
+      bar.className        = 'cal-task-bar';
+      bar.style.background = COLOR_HEX[t.color] || '#94a3b8';
+      bar.title            = `${t.name}（${t.start}〜${t.end}）`;
+      wrap.appendChild(bar);
+    });
+    if (tasks.length > 4) {
+      const more = document.createElement('div');
+      more.className   = 'cal-task-more';
+      more.textContent = `+${tasks.length - 4}件`;
+      wrap.appendChild(more);
+    }
+    cell.appendChild(wrap);
+  }
+
+  if (!otherMonth) {
+    cell.addEventListener('click', () => {
+      setCurrentDate(dateKey);
+      showView('timetable');
+    });
+  }
+  return cell;
+}
+
+document.getElementById('prevMonth').addEventListener('click', () => {
+  if (--calMonth < 0) { calMonth = 11; calYear--; }
+  buildMonthlyView();
+});
+document.getElementById('nextMonth').addEventListener('click', () => {
+  if (++calMonth > 11) { calMonth = 0; calYear++; }
+  buildMonthlyView();
+});
+document.getElementById('monthToday').addEventListener('click', () => {
+  const n = new Date();
+  calYear = n.getFullYear(); calMonth = n.getMonth();
+  buildMonthlyView();
+});
+
+/* ═══════════════════════════════════════════════════════
+   工番マスタページ
+═══════════════════════════════════════════════════════ */
+let masterEditKoban = null;
+
+function renderMasterPage(filter) {
+  filter = (filter || '').toLowerCase();
+  const master = loadKobanMaster();
+  const rows   = Object.values(master)
+    .filter(k => !filter ||
+      k.koban.toLowerCase().includes(filter) ||
+      k.productName.toLowerCase().includes(filter))
+    .sort((a, b) => a.koban.localeCompare(b.koban, 'ja'));
+
+  const tbody = document.getElementById('masterTableBody');
+  tbody.innerHTML = '';
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="master-empty">${
+      filter ? '該当する工番が見つかりません' : '工番がまだ登録されていません'
+    }</td></tr>`;
+    return;
+  }
+
+  rows.forEach(k => {
+    const recs   = getKobanRecords(k.koban);
+    const avgMin = recs.length
+      ? Math.round(recs.reduce((s, r) => s + r.duration, 0) / recs.length)
+      : null;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="master-koban-badge">${escHtml(k.koban)}</span></td>
+      <td>${escHtml(k.productName)}</td>
+      <td>${k.stdMin ? minToHM(k.stdMin) : '—'}</td>
+      <td>${recs.length}回</td>
+      <td>${avgMin !== null ? minToHM(avgMin) : '—'}</td>
+      <td style="white-space:nowrap;text-align:right;">
+        <button class="btn btn-secondary" style="padding:5px 12px;font-size:.78rem;" data-edit="${escHtml(k.koban)}">編集</button>
+        <button class="btn btn-danger" style="padding:5px 12px;font-size:.78rem;margin-left:6px;" data-del="${escHtml(k.koban)}">削除</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function openMasterForm(koban) {
+  masterEditKoban = koban || null;
+  document.getElementById('masterFormTitle').textContent = koban ? '工番を編集' : '工番を登録';
+  document.getElementById('masterFormErr').textContent   = '';
+  const kobanInput = document.getElementById('mfKoban');
+  if (koban) {
+    const k = loadKobanMaster()[koban] || {};
+    kobanInput.value   = k.koban || '';
+    kobanInput.disabled = true;
+    document.getElementById('mfProduct').value = k.productName || '';
+    document.getElementById('mfStdMin').value  = k.stdMin ?? '';
+  } else {
+    kobanInput.value    = '';
+    kobanInput.disabled = false;
+    document.getElementById('mfProduct').value = '';
+    document.getElementById('mfStdMin').value  = '';
+  }
+  document.getElementById('masterFormCard').classList.add('open');
+  setTimeout(() => (koban ? document.getElementById('mfProduct') : kobanInput).focus(), 50);
+}
+
+function closeMasterForm() {
+  document.getElementById('masterFormCard').classList.remove('open');
+  masterEditKoban = null;
+}
+
+document.getElementById('masterAddBtn').addEventListener('click', () => openMasterForm());
+document.getElementById('masterFormCancel').addEventListener('click', closeMasterForm);
+document.getElementById('masterSearch').addEventListener('input', e => renderMasterPage(e.target.value));
+
+document.getElementById('masterFormSave').addEventListener('click', () => {
+  const koban   = document.getElementById('mfKoban').value.trim();
+  const product = document.getElementById('mfProduct').value.trim();
+  const stdMin  = parseInt(document.getElementById('mfStdMin').value, 10) || null;
+  const errEl   = document.getElementById('masterFormErr');
+  if (!koban)   { errEl.textContent = '工番を入力してください'; return; }
+  if (!product) { errEl.textContent = '品名を入力してください'; return; }
+  errEl.textContent = '';
+  const master = loadKobanMaster();
+  if (!masterEditKoban && master[koban]) {
+    errEl.textContent = 'その工番はすでに登録されています'; return;
+  }
+  const key   = masterEditKoban || koban;
+  master[key] = { koban: key, productName: product, stdMin };
+  saveKobanMaster(master);
+  closeMasterForm();
+  renderMasterPage(document.getElementById('masterSearch').value);
+});
+
+document.getElementById('masterTableBody').addEventListener('click', e => {
+  const ed  = e.target.closest('[data-edit]');
+  const del = e.target.closest('[data-del]');
+  if (ed) {
+    openMasterForm(ed.dataset.edit);
+  } else if (del) {
+    const koban = del.dataset.del;
+    if (!confirm(`「${koban}」を削除しますか？\n（作業ブロックの工番情報は残ります）`)) return;
+    const master = loadKobanMaster();
+    delete master[koban];
+    saveKobanMaster(master);
+    renderMasterPage(document.getElementById('masterSearch').value);
+  }
+});
+
+/* ═══════════════════════════════════════════════════════
+   ビュー切替
+═══════════════════════════════════════════════════════ */
+function showView(name) {
+  ['timetable','monthly','master'].forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.hidden = (v !== name);
+  });
+  document.querySelectorAll('.nav-tab').forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.view === name));
+  document.getElementById('fabBtn').style.display = name === 'timetable' ? '' : 'none';
+  if (name === 'monthly') buildMonthlyView();
+  if (name === 'master')  renderMasterPage(document.getElementById('masterSearch').value);
+}
+
+document.querySelectorAll('.nav-tab').forEach(btn =>
+  btn.addEventListener('click', () => showView(btn.dataset.view)));
 
 /* ═══════════════════════════════════════════════════════
    初期化
